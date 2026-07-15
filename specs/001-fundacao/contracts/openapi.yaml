@@ -1,0 +1,503 @@
+openapi: 3.0.3
+info:
+  title: Proptech Avaliador — API (Feature 001: Fundação)
+  version: "0.1.0"
+  description: >
+    Contrato dos endpoints de tenancy, autenticação, licenciamento e cadastro de imóveis.
+    Erros seguem RFC 9457 (application/problem+json).
+servers:
+  - url: /api/v1
+
+tags:
+  - name: auth
+  - name: users
+  - name: licenciamento
+  - name: imoveis
+
+paths:
+  /auth/signup:
+    post:
+      tags: [auth]
+      summary: Cria conta, tenant e license em trial
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SignupRequest' }
+      responses:
+        '201':
+          description: Tenant e usuário admin criados
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '409':
+          description: E-mail já cadastrado
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Autentica usuário, retorna access token (refresh via cookie httpOnly)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: Login bem-sucedido
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '401':
+          description: Credenciais inválidas
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /auth/refresh:
+    post:
+      tags: [auth]
+      summary: Renova access token a partir do refresh token (cookie)
+      responses:
+        '200':
+          description: Novo access token
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: Invalida o refresh token atual
+      responses:
+        '204': { description: Sessão encerrada }
+
+  /auth/2fa/setup:
+    post:
+      tags: [auth]
+      summary: Gera segredo TOTP e QR code para o admin autenticado
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Segredo TOTP gerado (ainda não ativado)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TotpSetupResponse' }
+
+  /auth/2fa/verify:
+    post:
+      tags: [auth]
+      summary: Confirma código TOTP e ativa 2FA, retorna recovery codes
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [codigo]
+              properties:
+                codigo: { type: string, example: "123456" }
+      responses:
+        '200':
+          description: 2FA ativado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TotpVerifyResponse' }
+        '400':
+          description: Código inválido
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /users:
+    get:
+      tags: [users]
+      summary: Lista usuários do tenant (admin)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Lista de usuários
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/User' }
+
+  /users/convites:
+    post:
+      tags: [users]
+      summary: Convida um corretor para o tenant (admin, requer 2FA ativo)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        '201':
+          description: Convite criado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Convite' }
+        '402':
+          description: Limite de usuários do plano atingido
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '403':
+          description: 2FA não ativo no admin
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /convites/{token}/aceitar:
+    post:
+      tags: [users]
+      summary: Aceita convite e define senha do novo corretor
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nome, senha]
+              properties:
+                nome: { type: string }
+                senha: { type: string, minLength: 8 }
+      responses:
+        '200':
+          description: Corretor ativado, sessão iniciada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '410':
+          description: Convite expirado ou já usado
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /plans:
+    get:
+      tags: [licenciamento]
+      summary: Lista planos disponíveis (público)
+      responses:
+        '200':
+          description: Catálogo de planos
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Plan' }
+
+  /license:
+    get:
+      tags: [licenciamento]
+      summary: Detalhes da licença do tenant atual
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Licença vigente
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/License' }
+
+  /license/upgrade:
+    post:
+      tags: [licenciamento]
+      summary: Troca o plano do tenant (admin)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [plan_id]
+              properties:
+                plan_id: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Licença atualizada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/License' }
+
+  /invoices:
+    get:
+      tags: [licenciamento]
+      summary: Lista faturas do tenant (admin)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Faturas
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Invoice' }
+
+  /webhooks/mercadopago:
+    post:
+      tags: [licenciamento]
+      summary: Recebe notificações de pagamento (idempotente)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200': { description: Evento processado ou já conhecido (idempotente) }
+
+  /imoveis:
+    post:
+      tags: [imoveis]
+      summary: Cadastra imóvel
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ImovelCreate' }
+      responses:
+        '201':
+          description: Imóvel criado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Imovel' }
+        '402':
+          description: Limite de imóveis do plano atingido
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+    get:
+      tags: [imoveis]
+      summary: Lista imóveis do tenant com filtros
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [disponivel, vendido, alugado, reservado] } }
+        - { name: tipo, in: query, schema: { type: string, enum: [apartamento, casa, terreno, comercial, galpao] } }
+        - { name: bairro, in: query, schema: { type: string } }
+        - { name: cidade, in: query, schema: { type: string } }
+        - { name: valor_min, in: query, schema: { type: number } }
+        - { name: valor_max, in: query, schema: { type: number } }
+        - { name: skip, in: query, schema: { type: integer, default: 0 } }
+        - { name: limit, in: query, schema: { type: integer, default: 20, maximum: 100 } }
+      responses:
+        '200':
+          description: Lista paginada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImovelPage' }
+
+  /imoveis/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [imoveis]
+      summary: Obtém imóvel por id
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Imóvel
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Imovel' }
+        '404': { description: Não encontrado (inclui imóvel de outro tenant) }
+    put:
+      tags: [imoveis]
+      summary: Atualiza imóvel
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ImovelUpdate' }
+      responses:
+        '200':
+          description: Imóvel atualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Imovel' }
+    delete:
+      tags: [imoveis]
+      summary: Inativa imóvel (soft delete)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '204': { description: Inativado }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Problem:
+      type: object
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+
+    SignupRequest:
+      type: object
+      required: [nome_tenant, nome, email, senha]
+      properties:
+        nome_tenant: { type: string }
+        nome: { type: string }
+        email: { type: string, format: email }
+        senha: { type: string, minLength: 8 }
+
+    LoginRequest:
+      type: object
+      required: [email, senha]
+      properties:
+        email: { type: string, format: email }
+        senha: { type: string }
+        codigo_totp: { type: string, description: "Obrigatório se o usuário tiver 2FA ativo" }
+
+    AuthResponse:
+      type: object
+      properties:
+        access_token: { type: string }
+        token_type: { type: string, example: bearer }
+        expires_in: { type: integer, example: 900 }
+        user: { $ref: '#/components/schemas/User' }
+
+    TotpSetupResponse:
+      type: object
+      properties:
+        secret: { type: string }
+        otpauth_url: { type: string }
+        qrcode_png_base64: { type: string }
+
+    TotpVerifyResponse:
+      type: object
+      properties:
+        ativado: { type: boolean }
+        recovery_codes:
+          type: array
+          items: { type: string }
+
+    User:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        nome: { type: string }
+        email: { type: string, format: email }
+        papel: { type: string, enum: [admin, corretor] }
+        totp_enabled: { type: boolean }
+        ativo: { type: boolean }
+        created_at: { type: string, format: date-time }
+
+    Convite:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        papel: { type: string, enum: [admin, corretor] }
+        expires_at: { type: string, format: date-time }
+
+    Plan:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        nome: { type: string, enum: [solo, pro, enterprise] }
+        max_users: { type: integer, nullable: true }
+        max_imoveis: { type: integer, nullable: true }
+        preco_mensal: { type: string, description: "Decimal serializado como string, ex. '39.0000'" }
+
+    License:
+      type: object
+      properties:
+        tenant_id: { type: string, format: uuid }
+        plan: { $ref: '#/components/schemas/Plan' }
+        status: { type: string, enum: [trial, active, past_due, suspended, cancelled] }
+        trial_termina_em: { type: string, format: date-time, nullable: true }
+
+    Invoice:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        valor: { type: string }
+        status: { type: string, enum: [pending, paid, failed, refunded] }
+        ciclo_mes: { type: integer }
+        ciclo_ano: { type: integer }
+        vencimento: { type: string, format: date }
+        pago_em: { type: string, format: date-time, nullable: true }
+
+    ImovelCreate:
+      type: object
+      required: [titulo, cep, bairro, cidade, estado, tipo, area_total]
+      properties:
+        titulo: { type: string, maxLength: 200 }
+        descricao: { type: string, nullable: true }
+        cep: { type: string, pattern: '^\d{5}-?\d{3}$' }
+        bairro: { type: string }
+        cidade: { type: string }
+        estado: { type: string, minLength: 2, maxLength: 2 }
+        tipo: { type: string, enum: [apartamento, casa, terreno, comercial, galpao] }
+        area_total: { type: number }
+        area_util: { type: number, nullable: true }
+        quartos: { type: integer, nullable: true }
+        banheiros: { type: integer, nullable: true }
+        vagas: { type: integer, nullable: true }
+        suites: { type: integer, nullable: true }
+        andar: { type: integer, nullable: true }
+        idade_anos: { type: integer, nullable: true }
+        conservacao: { type: string, enum: [otima, boa, regular, ruim], nullable: true }
+        valor_anunciado: { type: number, nullable: true }
+        matricula: { type: string, nullable: true }
+        iptu_quitado: { type: boolean, nullable: true }
+        escritura_ok: { type: boolean, nullable: true }
+
+    ImovelUpdate:
+      allOf:
+        - $ref: '#/components/schemas/ImovelCreate'
+        - type: object
+          properties:
+            status: { type: string, enum: [disponivel, vendido, alugado, reservado] }
+
+    Imovel:
+      allOf:
+        - $ref: '#/components/schemas/ImovelCreate'
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+            corretor_id: { type: string, format: uuid }
+            status: { type: string, enum: [disponivel, vendido, alugado, reservado] }
+            logradouro: { type: string, nullable: true }
+            latitude: { type: number, nullable: true }
+            longitude: { type: number, nullable: true }
+            fotos:
+              type: array
+              items: { type: string, format: uri }
+            created_at: { type: string, format: date-time }
+            updated_at: { type: string, format: date-time }
+
+    ImovelPage:
+      type: object
+      properties:
+        total: { type: integer }
+        skip: { type: integer }
+        limit: { type: integer }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Imovel' }

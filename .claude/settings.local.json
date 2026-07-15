@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker --version)",
+      "Bash(pip install *)",
+      "Bash(timeout 5 pip download --no-deps -d /tmp/pipcheck fastapi)",
+      "Bash(.venv/bin/pip install *)",
+      "Bash(mkdir -p app/core app/middleware app/modules/tenancy tests alembic/versions)",
+      "Bash(.venv/bin/python -m pytest tests/test_subdomain.py -q)",
+      "Bash(.venv/bin/ruff check *)",
+      "Bash(.venv/bin/mypy app *)",
+      "Bash(DATABASE_URL=\"sqlite+aiosqlite:////tmp/alembic_smoke_test.db\" .venv/bin/alembic upgrade head)",
+      "Bash(.venv/bin/python -c ' *)",
+      "Bash(DATABASE_URL=\"sqlite+aiosqlite:////tmp/alembic_smoke_test.db\" .venv/bin/alembic downgrade base)",
+      "Bash(.venv/bin/python -m pytest -q)",
+      "Bash(.venv/bin/python -m pytest tests/test_totp.py -q)",
+      "Bash(.venv/bin/python -m pytest tests/test_convites.py -q)",
+      "Bash(.venv/bin/alembic revision *)",
+      "Bash(DATABASE_URL=\"sqlite+aiosqlite:////tmp/alembic_smoke_test3.db\" .venv/bin/alembic upgrade head)",
+      "Bash(DATABASE_URL=\"sqlite+aiosqlite:////tmp/alembic_smoke_test3.db\" .venv/bin/alembic downgrade base)",
+      "Bash(.venv/bin/python -m pytest -q --cov=app --cov-report=term-missing)",
+      "Bash(mkdir -p /home/obalcon/Antigos/backup/Documentos/Sitios/intelibits/imobicalc/backend/app/modules/imoveis)",
+      "Bash(.venv/bin/pytest tests/test_imoveis.py -q)",
+      "Bash(.venv/bin/pytest -q --cov=app --cov-report=term-missing)",
+      "Bash(.venv/bin/mypy app/modules/imoveis)",
+      "Bash(npm install *)",
+      "Bash(.venv/bin/pytest -q)",
+      "Read(//usr/local/**)",
+      "Read(//home/obalcon/**)",
+      "Bash(command -v node)",
+      "Bash(git ls-remote *)",
+      "Bash(git add *)"
+    ],
+    "additionalDirectories": [
+      "/home/obalcon/Antigos/backup/Documentos/Sitios/intelibits/imobicalc/backend/app",
+      "/tmp",
+      "/home/obalcon/Antigos/backup/Documentos/Sitios/intelibits/imobicalc/backend/app/modules"
+    ]
+  }
+}

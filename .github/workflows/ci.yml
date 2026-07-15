@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Estática (mypy)
+        run: mypy app
+
+      - name: Testes + cobertura (Artigo III — mínimo 80% geral)
+        run: pytest -q --cov=app --cov-report=term-missing --cov-fail-under=80
+
+      - name: Cobertura 100% nos caminhos de dinheiro (Artigo III — licenciamento)
+        run: pytest -q --cov=app.modules.licenciamento --cov-report=term-missing --cov-fail-under=100
+
+      - name: Isolamento de tenant confirmado (Artigo I)
+        run: pytest -q tests/test_tenant_isolation.py
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend/apps/corretor
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - run: npm install
+
+      - name: Build
+        run: npm run build
