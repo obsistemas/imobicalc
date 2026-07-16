@@ -1,0 +1,73 @@
+openapi: 3.0.3
+info:
+  title: Proptech Avaliador API — Feature 003 (Sugestão de Preço de Anúncio)
+  version: 0.3.0
+tags:
+  - name: sugestoes-preco
+
+paths:
+  /imoveis/{imovel_id}/avaliacoes/{avaliacao_id}/sugestoes-preco:
+    parameters:
+      - { name: imovel_id, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: avaliacao_id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [sugestoes-preco]
+      summary: Gera uma sugestão de preço de anúncio a partir de uma avaliação existente
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SugestaoPrecoCreate' }
+      responses:
+        '201':
+          description: Sugestão criada (sempre com valor mínimo aceitável — nunca só o preço sugerido)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SugestaoPreco' }
+        '404': { description: Imóvel ou avaliação não encontrados (inclui de outro tenant/imóvel) }
+    get:
+      tags: [sugestoes-preco]
+      summary: Histórico de sugestões de preço geradas para a avaliação
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Lista ordenada por data, mais recente primeiro
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/SugestaoPreco' }
+        '404': { description: Imóvel ou avaliação não encontrados (inclui de outro tenant/imóvel) }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    SugestaoPrecoCreate:
+      type: object
+      required: [urgencia]
+      properties:
+        urgencia: { type: string, enum: [rapido, normal, maximo] }
+        observacoes: { type: string, nullable: true }
+
+    SugestaoPreco:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        imovel_id: { type: string, format: uuid }
+        avaliacao_id: { type: string, format: uuid }
+        corretor_id: { type: string, format: uuid }
+        urgencia: { type: string, enum: [rapido, normal, maximo] }
+        preco_anuncio_sugerido: { type: string, description: "Decimal serializado como string" }
+        valor_minimo_aceitavel: { type: string }
+        fatores:
+          type: object
+          description: "valor_estimado_base, valor_min_base, urgencia, fator_urgencia, margem_negociacao_pct, valor_minimo_aceitavel_bruto, clamp_aplicado"
+          additionalProperties: true
+        observacoes: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }

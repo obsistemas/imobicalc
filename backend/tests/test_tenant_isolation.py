@@ -12,6 +12,7 @@ from app.core.tenant_context import (
 )
 from app.modules.avaliacoes.models import Avaliacao
 from app.modules.imoveis.models import Imovel
+from app.modules.sugestoes_preco.models import SugestaoPreco
 from app.modules.tenancy.models import Papel, User
 from tests.helpers import assert_tenant_isolated
 
@@ -67,6 +68,24 @@ async def _create_avaliacao(session, tenant_id: uuid.UUID) -> None:
 
 async def test_avaliacao_isolation_between_tenants(db_sessionmaker):
     await assert_tenant_isolated(db_sessionmaker, Avaliacao, _create_avaliacao)
+
+
+async def _create_sugestao_preco(session, tenant_id: uuid.UUID) -> None:
+    session.add(
+        SugestaoPreco(
+            imovel_id=uuid.uuid4(),
+            avaliacao_id=uuid.uuid4(),
+            corretor_id=uuid.uuid4(),
+            urgencia="normal",
+            preco_anuncio_sugerido="100000",
+            valor_minimo_aceitavel="92000",
+            fatores="{}",
+        )
+    )
+
+
+async def test_sugestao_preco_isolation_between_tenants(db_sessionmaker):
+    await assert_tenant_isolated(db_sessionmaker, SugestaoPreco, _create_sugestao_preco)
 
 
 async def test_query_without_tenant_context_raises(db_session):

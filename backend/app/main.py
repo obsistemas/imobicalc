@@ -13,6 +13,7 @@ from app.modules.licenciamento import service as licenciamento_service
 from app.modules.licenciamento.router import router as licenciamento_router
 from app.modules.precos_mercado import service as precos_mercado_service
 from app.modules.precos_mercado.router import router as precos_mercado_router
+from app.modules.sugestoes_preco.router import router as sugestoes_preco_router
 from app.modules.tenancy.convites_router import router as convites_router
 from app.modules.tenancy.router import router as tenancy_router
 from app.observability import configure_logging, configure_sentry
@@ -41,6 +42,7 @@ def create_app() -> FastAPI:
     app.include_router(imoveis_router, prefix="/api/v1")
     app.include_router(precos_mercado_router, prefix="/api/v1")
     app.include_router(avaliacoes_router, prefix="/api/v1")
+    app.include_router(sugestoes_preco_router, prefix="/api/v1")
 
     return app
 

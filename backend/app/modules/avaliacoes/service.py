@@ -21,6 +21,10 @@ class DadosInsuficientesError(Exception):
     pass
 
 
+class AvaliacaoNotFoundError(Exception):
+    pass
+
+
 def _conservacao_valor(imovel) -> str | None:
     return imovel.conservacao.value if imovel.conservacao else None
 
@@ -119,3 +123,21 @@ async def listar_avaliacoes(
             .order_by(Avaliacao.created_at.desc(), Avaliacao.id.desc())
         )
         return list(result.scalars().all())
+
+
+async def obter_avaliacao(
+    session: AsyncSession, *, tenant_id: uuid.UUID, imovel_uuid: uuid.UUID, avaliacao_uuid: uuid.UUID, user: User
+) -> Avaliacao:
+    imovel = await obter_imovel(session, tenant_id=tenant_id, imovel_uuid=imovel_uuid, user=user)
+    with tenant_scope(tenant_id):
+        result = await session.execute(
+            select(Avaliacao).where(
+                Avaliacao.tenant_id == tenant_id,
+                Avaliacao.imovel_id == imovel.uuid,
+                Avaliacao.uuid == avaliacao_uuid,
+            )
+        )
+        avaliacao = result.scalar_one_or_none()
+    if avaliacao is None:
+        raise AvaliacaoNotFoundError(avaliacao_uuid)
+    return avaliacao

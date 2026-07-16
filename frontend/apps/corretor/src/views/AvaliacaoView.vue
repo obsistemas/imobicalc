@@ -22,7 +22,14 @@ const resultado = ref(null);
 const historico = ref([]);
 const carregandoHistorico = ref(true);
 
+const urgencia = ref("normal");
+const gerandoSugestao = ref(false);
+const erroSugestao = ref("");
+const sugestao = ref(null);
+const sugestoes = ref([]);
+
 const METODO_LABEL = { comparativo: "Comparativo direto", reproducao: "Reprodução/reposição (custo)", renda: "Renda/capitalização" };
+const URGENCIA_LABEL = { rapido: "Rápido", normal: "Normal", maximo: "Máximo" };
 
 function formatarMoeda(valor) {
   return Number(valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -59,6 +66,8 @@ async function calcular() {
   calculando.value = true;
   erro.value = "";
   resultado.value = null;
+  sugestao.value = null;
+  sugestoes.value = [];
   try {
     const { data } = await api.post(`/imoveis/${imovelId}/avaliacoes`, payload());
     resultado.value = data;
@@ -67,6 +76,34 @@ async function calcular() {
     erro.value = err.response?.data?.detail ?? "Não foi possível calcular a avaliação.";
   } finally {
     calculando.value = false;
+  }
+}
+
+async function carregarSugestoes() {
+  if (!resultado.value) return;
+  try {
+    const { data } = await api.get(`/imoveis/${imovelId}/avaliacoes/${resultado.value.id}/sugestoes-preco`);
+    sugestoes.value = data;
+  } catch {
+    // histórico de sugestões é complementar — falha silenciosa não bloqueia a tela
+  }
+}
+
+async function gerarSugestao() {
+  if (!resultado.value) return;
+  gerandoSugestao.value = true;
+  erroSugestao.value = "";
+  sugestao.value = null;
+  try {
+    const { data } = await api.post(`/imoveis/${imovelId}/avaliacoes/${resultado.value.id}/sugestoes-preco`, {
+      urgencia: urgencia.value,
+    });
+    sugestao.value = data;
+    await carregarSugestoes();
+  } catch (err) {
+    erroSugestao.value = err.response?.data?.detail ?? "Não foi possível gerar a sugestão de preço.";
+  } finally {
+    gerandoSugestao.value = false;
   }
 }
 
@@ -142,6 +179,64 @@ onMounted(carregarHistorico);
       <p v-if="resultado.observacoes" class="mt-3 text-sm text-amber-700 dark:text-amber-400">
         {{ resultado.observacoes }}
       </p>
+    </div>
+
+    <div v-if="resultado" class="mt-8">
+      <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        Sugestão de preço de anúncio
+      </h2>
+      <div class="flex flex-wrap items-end gap-3">
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Urgência do vendedor</label>
+          <select v-model="urgencia" class="input">
+            <option value="rapido">Rápido</option>
+            <option value="normal">Normal</option>
+            <option value="maximo">Máximo</option>
+          </select>
+        </div>
+        <button
+          type="button"
+          :disabled="gerandoSugestao"
+          class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+          @click="gerarSugestao"
+        >
+          {{ gerandoSugestao ? "Gerando…" : "Gerar sugestão" }}
+        </button>
+      </div>
+
+      <p v-if="erroSugestao" class="mt-3 text-sm text-red-600" role="alert">{{ erroSugestao }}</p>
+
+      <!-- Preço sugerido + valor mínimo aceitável sempre juntos, nunca só o número. -->
+      <div v-if="sugestao" class="mt-4 rounded-xl border border-primary/30 bg-primary/5 p-5 dark:bg-primary/10">
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          Urgência: {{ URGENCIA_LABEL[sugestao.urgencia] }}
+        </p>
+        <p class="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
+          {{ formatarMoeda(sugestao.preco_anuncio_sugerido) }}
+        </p>
+        <p class="text-sm text-slate-600 dark:text-slate-300">
+          Valor mínimo aceitável: {{ formatarMoeda(sugestao.valor_minimo_aceitavel) }}
+        </p>
+      </div>
+
+      <ul v-if="sugestoes.length" class="mt-4 space-y-2">
+        <li
+          v-for="item in sugestoes"
+          :key="item.id"
+          class="rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-700"
+        >
+          <div class="flex items-center justify-between">
+            <span class="font-medium text-slate-900 dark:text-white">{{ URGENCIA_LABEL[item.urgencia] }}</span>
+            <span class="text-slate-500 dark:text-slate-400">{{ new Date(item.created_at).toLocaleString("pt-BR") }}</span>
+          </div>
+          <div class="mt-1 text-slate-700 dark:text-slate-300">
+            {{ formatarMoeda(item.preco_anuncio_sugerido) }}
+            <span class="text-slate-500 dark:text-slate-400">
+              (mínimo aceitável: {{ formatarMoeda(item.valor_minimo_aceitavel) }})
+            </span>
+          </div>
+        </li>
+      </ul>
     </div>
 
     <div class="mt-10">
