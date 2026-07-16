@@ -10,6 +10,7 @@ from app.core.tenant_context import (
     system_scope,
     tenant_scope,
 )
+from app.modules.avaliacoes.models import Avaliacao
 from app.modules.imoveis.models import Imovel
 from app.modules.tenancy.models import Papel, User
 from tests.helpers import assert_tenant_isolated
@@ -48,6 +49,24 @@ async def _create_imovel(session, tenant_id: uuid.UUID) -> None:
 
 async def test_imovel_isolation_between_tenants(db_sessionmaker):
     await assert_tenant_isolated(db_sessionmaker, Imovel, _create_imovel)
+
+
+async def _create_avaliacao(session, tenant_id: uuid.UUID) -> None:
+    session.add(
+        Avaliacao(
+            imovel_id=uuid.uuid4(),
+            corretor_id=uuid.uuid4(),
+            metodo="comparativo",
+            valor_estimado="100000",
+            valor_min="90000",
+            valor_max="110000",
+            fatores="{}",
+        )
+    )
+
+
+async def test_avaliacao_isolation_between_tenants(db_sessionmaker):
+    await assert_tenant_isolated(db_sessionmaker, Avaliacao, _create_avaliacao)
 
 
 async def test_query_without_tenant_context_raises(db_session):

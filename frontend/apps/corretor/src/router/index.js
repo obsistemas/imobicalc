@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from "vue-router";
 import { useAuthStore } from "../stores/auth";
 import AcceptInviteView from "../views/AcceptInviteView.vue";
+import AvaliacaoView from "../views/AvaliacaoView.vue";
 import HomeView from "../views/HomeView.vue";
 import ImovelFormView from "../views/ImovelFormView.vue";
 import ImoveisListView from "../views/ImoveisListView.vue";
@@ -26,6 +27,7 @@ const router = createRouter({
     { path: "/imoveis", name: "imoveis", component: ImoveisListView },
     { path: "/imoveis/novo", name: "imovel-novo", component: ImovelFormView },
     { path: "/imoveis/:id/editar", name: "imovel-editar", component: ImovelFormView },
+    { path: "/imoveis/:id/avaliar", name: "imovel-avaliar", component: AvaliacaoView },
     { path: "/2fa/setup", name: "2fa-setup", component: TwoFactorSetupView },
     { path: "/equipe/convidar", name: "convidar-corretor", component: InviteTeamView },
     { path: "/plano", name: "plano", component: PlanoView },

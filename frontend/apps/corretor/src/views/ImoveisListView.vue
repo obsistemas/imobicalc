@@ -111,6 +111,7 @@ onMounted(carregar);
               <th class="px-4 py-2">Bairro/Cidade</th>
               <th class="px-4 py-2">Valor</th>
               <th class="px-4 py-2">Status</th>
+              <th class="px-4 py-2"></th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
@@ -125,6 +126,15 @@ onMounted(carregar);
               <td class="px-4 py-2 text-slate-600 dark:text-slate-300">{{ imovel.bairro }}, {{ imovel.cidade }}</td>
               <td class="px-4 py-2 text-slate-600 dark:text-slate-300">{{ formatarValor(imovel.valor_anunciado) }}</td>
               <td class="px-4 py-2 capitalize text-slate-600 dark:text-slate-300">{{ imovel.status }}</td>
+              <td class="px-4 py-2 text-right">
+                <router-link
+                  :to="{ name: 'imovel-avaliar', params: { id: imovel.id } }"
+                  class="text-primary"
+                  @click.stop
+                >
+                  Avaliar
+                </router-link>
+              </td>
             </tr>
           </tbody>
         </table>

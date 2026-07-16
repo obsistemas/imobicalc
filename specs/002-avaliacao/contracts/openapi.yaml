@@ -1,0 +1,140 @@
+openapi: 3.0.3
+info:
+  title: Proptech Avaliador API — Feature 002 (Motor de Avaliação + Base de Preços)
+  version: 0.2.0
+tags:
+  - name: precos-mercado
+  - name: avaliacoes
+
+paths:
+  /admin/precos-mercado:
+    get:
+      tags: [precos-mercado]
+      summary: Lista preços de mercado cadastrados
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Lista de preços de mercado
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/PrecoMercado' }
+    post:
+      tags: [precos-mercado]
+      summary: Cadastra preço de mercado (admin)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PrecoMercadoCreate' }
+      responses:
+        '201':
+          description: Preço de mercado criado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PrecoMercado' }
+        '403': { description: Apenas admin pode cadastrar preço de mercado }
+
+  /imoveis/{imovel_id}/avaliacoes:
+    parameters:
+      - { name: imovel_id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [avaliacoes]
+      summary: Executa uma avaliação do imóvel por um dos três métodos
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AvaliacaoCreate' }
+      responses:
+        '201':
+          description: Avaliação criada (sempre com faixa de confiança e observações — Artigo II)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Avaliacao' }
+        '404': { description: Imóvel não encontrado (inclui imóvel de outro tenant) }
+        '422':
+          description: Preço de mercado não cadastrado para a região/tipo (nem fallback genérico) — não calcula com valor arbitrário
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+    get:
+      tags: [avaliacoes]
+      summary: Histórico de avaliações do imóvel
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Lista ordenada por data, mais recente primeiro
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Avaliacao' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Problem:
+      type: object
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+
+    PrecoMercadoCreate:
+      type: object
+      required: [tipo, preco_m2, fonte]
+      properties:
+        bairro: { type: string, nullable: true, description: "nulo = fallback genérico por tipo" }
+        cidade: { type: string, nullable: true }
+        estado: { type: string, nullable: true, minLength: 2, maxLength: 2 }
+        tipo: { type: string, enum: [apartamento, casa, terreno, comercial, galpao] }
+        preco_m2: { type: number }
+        fonte: { type: string }
+
+    PrecoMercado:
+      allOf:
+        - $ref: '#/components/schemas/PrecoMercadoCreate'
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+            atualizado_em: { type: string, format: date-time }
+
+    AvaliacaoCreate:
+      type: object
+      required: [metodo]
+      properties:
+        metodo: { type: string, enum: [comparativo, reproducao, renda] }
+        # método "reproducao":
+        padrao_construtivo: { type: string, enum: [baixo, normal, alto], nullable: true }
+        # método "renda":
+        renda_mensal_bruta: { type: number, nullable: true }
+        despesas_operacionais_mensais: { type: number, nullable: true }
+        taxa_capitalizacao_anual: { type: number, nullable: true, description: "padrão sugerido 0.08 (8% a.a.)" }
+        observacoes: { type: string, nullable: true }
+
+    Avaliacao:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        imovel_id: { type: string, format: uuid }
+        corretor_id: { type: string, format: uuid }
+        metodo: { type: string, enum: [comparativo, reproducao, renda] }
+        valor_estimado: { type: string, description: "Decimal serializado como string" }
+        valor_min: { type: string }
+        valor_max: { type: string }
+        fatores:
+          type: object
+          description: "todos os inputs e valores intermediários do cálculo — reprodutibilidade (Artigo II)"
+          additionalProperties: true
+        observacoes: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
