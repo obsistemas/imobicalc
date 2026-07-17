@@ -47,6 +47,9 @@ class Lead(Base, TenantScopedMixin):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+    # Setado uma única vez, no momento exato da transição para FECHADO (nunca retroativo) —
+    # base do tempo médio de fechamento do dashboard (005-dashboard, RN3).
+    fechado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class LeadNota(Base, TenantScopedMixin):

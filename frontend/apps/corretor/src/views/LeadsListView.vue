@@ -1,12 +1,15 @@
 <script setup>
 import { onMounted, reactive, ref } from "vue";
+import { useRoute } from "vue-router";
 import api from "../api/client";
 
+const route = useRoute();
 const leads = ref([]);
 const loading = ref(true);
 const erro = ref("");
 
-const filtros = reactive({ estagio: "", origem: "" });
+// Aceita filtro pré-selecionado via query string (drill-down do dashboard, US5).
+const filtros = reactive({ estagio: route.query.estagio ?? "", origem: route.query.origem ?? "" });
 
 const ESTAGIO_COR = {
   novo: "bg-blue-100 text-blue-800",

@@ -33,6 +33,7 @@ class LeadOut(BaseModel):
     estagio: EstagioLead
     created_at: datetime
     updated_at: datetime
+    fechado_em: datetime | None
 
     @classmethod
     def from_lead(cls, lead: Lead) -> "LeadOut":
@@ -47,6 +48,7 @@ class LeadOut(BaseModel):
             estagio=lead.estagio,
             created_at=lead.created_at,
             updated_at=lead.updated_at,
+            fechado_em=lead.fechado_em,
         )
 
 

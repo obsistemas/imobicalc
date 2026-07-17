@@ -32,7 +32,8 @@
       "Bash(git add *)",
       "Read(//usr/bin/**)",
       "Bash(/run/host/usr/bin/python3.13 --version)",
-      "Bash(mkdir -p /home/obalcon/Antigos/backup/Documentos/Sitios/intelibits/imobicalc/frontend/apps/corretor/src/composables)"
+      "Bash(mkdir -p /home/obalcon/Antigos/backup/Documentos/Sitios/intelibits/imobicalc/frontend/apps/corretor/src/composables)",
+      "Bash(.venv/bin/pytest tests/test_dashboard.py -q)"
     ],
     "additionalDirectories": [
       "/home/obalcon/Antigos/backup/Documentos/Sitios/intelibits/imobicalc/backend/app",

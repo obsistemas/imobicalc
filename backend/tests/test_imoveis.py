@@ -267,6 +267,41 @@ async def test_atualizar_imovel_altera_status(client):
     assert resp.json()["status"] == "reservado"
 
 
+async def test_atualizar_imovel_para_vendido_preenche_data_venda(client):
+    token = await _signup(client, email="vendido@example.com")
+    criado = await client.post("/imoveis", json=_PAYLOAD_BASE, headers={"Authorization": f"Bearer {token}"})
+    imovel_id = criado.json()["id"]
+    assert criado.json()["data_venda"] is None
+
+    resp = await client.put(
+        f"/imoveis/{imovel_id}",
+        json={**_PAYLOAD_BASE, "status": "vendido"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["data_venda"] is not None
+
+
+async def test_atualizar_imovel_ja_vendido_nao_sobrescreve_data_venda(client):
+    token = await _signup(client, email="vendido-idempotente@example.com")
+    criado = await client.post("/imoveis", json=_PAYLOAD_BASE, headers={"Authorization": f"Bearer {token}"})
+    imovel_id = criado.json()["id"]
+
+    primeira = await client.put(
+        f"/imoveis/{imovel_id}",
+        json={**_PAYLOAD_BASE, "status": "vendido"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    data_venda_original = primeira.json()["data_venda"]
+
+    segunda = await client.put(
+        f"/imoveis/{imovel_id}",
+        json={**_PAYLOAD_BASE, "status": "vendido", "titulo": "Outro título"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert segunda.json()["data_venda"] == data_venda_original
+
+
 async def test_inativar_imovel_remove_da_listagem(client):
     token = await _signup(client, email="inativar@example.com")
     criado = await client.post("/imoveis", json=_PAYLOAD_BASE, headers={"Authorization": f"Bearer {token}"})

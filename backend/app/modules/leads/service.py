@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 
 from redis.asyncio import Redis
 from sqlalchemy import select
@@ -91,6 +92,8 @@ async def mover_estagio(
     estagio_anterior = lead.estagio
     with tenant_scope(tenant_id):
         lead.estagio = novo_estagio
+        if novo_estagio == EstagioLead.FECHADO:
+            lead.fechado_em = datetime.now(timezone.utc)
         session.add(
             LeadNota(
                 tenant_id=tenant_id,

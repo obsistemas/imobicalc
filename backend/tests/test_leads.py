@@ -95,6 +95,29 @@ async def test_mover_estagio_a_partir_de_fechado_retorna_422(client):
     assert resp.status_code == 422
 
 
+async def test_mover_estagio_para_fechado_preenche_fechado_em(client):
+    token = await _signup(client, email="lead-fechado-em@example.com")
+    lead = await _criar_lead(client, token)
+    assert lead["fechado_em"] is None
+
+    resp = await client.put(
+        f"/leads/{lead['id']}/estagio", json={"estagio": "fechado"}, headers={"Authorization": f"Bearer {token}"}
+    )
+    assert resp.status_code == 200
+    assert resp.json()["fechado_em"] is not None
+
+
+async def test_mover_estagio_para_nao_fechado_nao_preenche_fechado_em(client):
+    token = await _signup(client, email="lead-nao-fechado-em@example.com")
+    lead = await _criar_lead(client, token)
+
+    resp = await client.put(
+        f"/leads/{lead['id']}/estagio", json={"estagio": "visita"}, headers={"Authorization": f"Bearer {token}"}
+    )
+    assert resp.status_code == 200
+    assert resp.json()["fechado_em"] is None
+
+
 async def test_mover_estagio_gera_nota_automatica(client):
     token = await _signup(client, email="lead-nota-automatica@example.com")
     lead = await _criar_lead(client, token)

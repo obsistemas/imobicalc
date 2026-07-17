@@ -9,6 +9,7 @@ const auth = useAuthStore();
     <header class="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4 dark:border-slate-700 dark:bg-slate-800">
       <span class="font-semibold text-slate-900 dark:text-white">Proptech Avaliador</span>
       <div class="flex items-center gap-4 text-sm text-slate-600 dark:text-slate-300">
+        <router-link :to="{ name: 'dashboard' }" class="text-primary">Dashboard</router-link>
         <router-link :to="{ name: 'imoveis' }" class="text-primary">Imóveis</router-link>
         <router-link :to="{ name: 'leads' }" class="text-primary">Leads</router-link>
         <router-link :to="{ name: 'plano' }" class="text-primary">Plano</router-link>
@@ -25,10 +26,10 @@ const auth = useAuthStore();
     </header>
     <main class="p-6 text-slate-700 dark:text-slate-200">
       <p>
-        Dashboard chega na próxima feature do roadmap (specs/005+). Enquanto isso, use o menu
-        <router-link :to="{ name: 'imoveis' }" class="text-primary">Imóveis</router-link> para cadastrar e avaliar sua
-        carteira, e <router-link :to="{ name: 'leads' }" class="text-primary">Leads</router-link> para acompanhar o
-        pipeline de vendas.
+        Use o menu <router-link :to="{ name: 'dashboard' }" class="text-primary">Dashboard</router-link> para ver o
+        panorama do negócio, <router-link :to="{ name: 'imoveis' }" class="text-primary">Imóveis</router-link> para
+        cadastrar e avaliar sua carteira, e <router-link :to="{ name: 'leads' }" class="text-primary">Leads</router-link>
+        para acompanhar o pipeline de vendas.
       </p>
     </main>
   </div>

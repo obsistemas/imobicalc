@@ -1,7 +1,7 @@
 import json
 import re
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from pydantic import BaseModel, Field, field_validator
@@ -80,6 +80,7 @@ class ImovelOut(BaseModel):
     fotos: list[str]
     created_at: datetime
     updated_at: datetime
+    data_venda: date | None
 
     @classmethod
     def from_imovel(cls, imovel: Imovel) -> "ImovelOut":
@@ -113,6 +114,7 @@ class ImovelOut(BaseModel):
             fotos=json.loads(imovel.fotos),
             created_at=imovel.created_at,
             updated_at=imovel.updated_at,
+            data_venda=imovel.data_venda,
         )
 
 

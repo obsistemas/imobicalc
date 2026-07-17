@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from sqlalchemy import func, select
@@ -127,6 +128,13 @@ async def atualizar_imovel(
     with tenant_scope(tenant_id):
         _aplicar_campos(imovel, payload)
         if payload.status is not None:
+            # Setado uma única vez, no momento exato da transição para VENDIDO (nunca
+            # retroativo) — base das métricas de vendas do dashboard (005-dashboard).
+            # Usa data UTC explícita (não date.today(), que usa fuso local do servidor e
+            # pode ficar um dia "atrasada" em relação a created_at, gerado em UTC — causaria
+            # tempo_medio_venda_imovel_dias negativo em servidores fora de UTC).
+            if payload.status == ImovelStatus.VENDIDO and imovel.data_venda is None:
+                imovel.data_venda = datetime.now(timezone.utc).date()
             imovel.status = payload.status
         await session.commit()
         await session.refresh(imovel)

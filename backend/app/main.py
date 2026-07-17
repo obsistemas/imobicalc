@@ -7,6 +7,7 @@ from app.database import SessionLocal
 from app.health import router as health_router
 from app.middleware.tenant import IdentifyTenantMiddleware
 from app.modules.avaliacoes.router import router as avaliacoes_router
+from app.modules.dashboard.router import router as dashboard_router
 from app.modules.imoveis.router import router as imoveis_router
 from app.modules.leads import listeners as leads_listeners  # noqa: F401  (registra @on)
 from app.modules.leads.router import router as leads_router
@@ -48,6 +49,7 @@ def create_app() -> FastAPI:
     app.include_router(sugestoes_preco_router, prefix="/api/v1")
     app.include_router(leads_router, prefix="/api/v1")
     app.include_router(notificacoes_router, prefix="/api/v1")
+    app.include_router(dashboard_router, prefix="/api/v1")
 
     return app
 

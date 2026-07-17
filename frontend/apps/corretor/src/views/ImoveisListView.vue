@@ -1,15 +1,18 @@
 <script setup>
 import { onMounted, reactive, ref, watch } from "vue";
+import { useRoute } from "vue-router";
 import api from "../api/client";
 
+const route = useRoute();
 const imoveis = ref([]);
 const total = ref(0);
 const loading = ref(true);
 const erro = ref("");
 
+// Aceita filtro pré-selecionado via query string (drill-down do dashboard, US5).
 const filtros = reactive({
-  status: "",
-  tipo: "",
+  status: route.query.status ?? "",
+  tipo: route.query.tipo ?? "",
   bairro: "",
   cidade: "",
   valor_min: "",
