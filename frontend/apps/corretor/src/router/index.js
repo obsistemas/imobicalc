@@ -7,6 +7,9 @@ import ImovelFormView from "../views/ImovelFormView.vue";
 import ImoveisListView from "../views/ImoveisListView.vue";
 import InviteTeamView from "../views/InviteTeamView.vue";
 import InvoicesView from "../views/InvoicesView.vue";
+import LeadDetailView from "../views/LeadDetailView.vue";
+import LeadFormView from "../views/LeadFormView.vue";
+import LeadsListView from "../views/LeadsListView.vue";
 import LoginView from "../views/LoginView.vue";
 import PlanoView from "../views/PlanoView.vue";
 import SignupView from "../views/SignupView.vue";
@@ -28,6 +31,9 @@ const router = createRouter({
     { path: "/imoveis/novo", name: "imovel-novo", component: ImovelFormView },
     { path: "/imoveis/:id/editar", name: "imovel-editar", component: ImovelFormView },
     { path: "/imoveis/:id/avaliar", name: "imovel-avaliar", component: AvaliacaoView },
+    { path: "/leads", name: "leads", component: LeadsListView },
+    { path: "/leads/novo", name: "lead-novo", component: LeadFormView },
+    { path: "/leads/:id", name: "lead-detalhe", component: LeadDetailView },
     { path: "/2fa/setup", name: "2fa-setup", component: TwoFactorSetupView },
     { path: "/equipe/convidar", name: "convidar-corretor", component: InviteTeamView },
     { path: "/plano", name: "plano", component: PlanoView },

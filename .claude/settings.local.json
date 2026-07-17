@@ -29,12 +29,16 @@
       "Read(//home/obalcon/**)",
       "Bash(command -v node)",
       "Bash(git ls-remote *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Read(//usr/bin/**)",
+      "Bash(/run/host/usr/bin/python3.13 --version)",
+      "Bash(mkdir -p /home/obalcon/Antigos/backup/Documentos/Sitios/intelibits/imobicalc/frontend/apps/corretor/src/composables)"
     ],
     "additionalDirectories": [
       "/home/obalcon/Antigos/backup/Documentos/Sitios/intelibits/imobicalc/backend/app",
       "/tmp",
-      "/home/obalcon/Antigos/backup/Documentos/Sitios/intelibits/imobicalc/backend/app/modules"
+      "/home/obalcon/Antigos/backup/Documentos/Sitios/intelibits/imobicalc/backend/app/modules",
+      "/home/obalcon/Antigos/backup/Documentos/Sitios/intelibits/imobicalc/frontend/apps/corretor/src"
     ]
   }
 }

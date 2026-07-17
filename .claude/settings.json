@@ -3,7 +3,16 @@
     "allow": [
       "Bash(pkill -f \"uvicorn app.main:app\")",
       "Bash(curl -s http://localhost:8000/health)",
-      "Bash(curl -s -o /dev/null -w \"Vite /imoveis/x/avaliar: %{http_code}\\\\n\" \"http://localhost:5173/imoveis/705a3afa-903d-492c-b785-bc463e99fcc0/avaliar\")"
+      "Bash(curl -s -o /dev/null -w \"Vite /imoveis/x/avaliar: %{http_code}\\\\n\" \"http://localhost:5173/imoveis/705a3afa-903d-492c-b785-bc463e99fcc0/avaliar\")",
+      "Bash(python -m pytest -q)",
+      "Bash(pg_isready -h localhost -p 5432)",
+      "Bash(flatpak-spawn --host node -v)",
+      "Bash(flatpak-spawn --host docker ps)",
+      "Bash(flatpak-spawn --host which npm docker node)",
+      "Bash(flatpak-spawn --host bash -c \"cd /tmp && npx playwright install chromium 2>&1 | tail -20\")",
+      "Bash(rm -f /home/obalcon/Antigos/backup/Documentos/Sitios/intelibits/imobicalc/node_modules /home/obalcon/Antigos/backup/Documentos/Sitios/intelibits/imobicalc/node_modules_scratch_link)",
+      "Bash(flatpak-spawn --host bash -c \"ln -sfn /tmp/node_modules /home/obalcon/Antigos/backup/Documentos/Sitios/intelibits/imobicalc/.pwtest/node_modules\")",
+      "Bash(flatpak-spawn --host bash -c \"cd /home/obalcon/Antigos/backup/Documentos/Sitios/intelibits/imobicalc/.pwtest && node drive.mjs\")"
     ]
   }
 }

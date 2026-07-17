@@ -12,6 +12,7 @@ from app.core.tenant_context import (
 )
 from app.modules.avaliacoes.models import Avaliacao
 from app.modules.imoveis.models import Imovel
+from app.modules.leads.models import Lead, LeadNota
 from app.modules.sugestoes_preco.models import SugestaoPreco
 from app.modules.tenancy.models import Papel, User
 from tests.helpers import assert_tenant_isolated
@@ -86,6 +87,22 @@ async def _create_sugestao_preco(session, tenant_id: uuid.UUID) -> None:
 
 async def test_sugestao_preco_isolation_between_tenants(db_sessionmaker):
     await assert_tenant_isolated(db_sessionmaker, SugestaoPreco, _create_sugestao_preco)
+
+
+async def _create_lead(session, tenant_id: uuid.UUID) -> None:
+    session.add(Lead(corretor_id=uuid.uuid4(), nome="Lead Teste", origem="site"))
+
+
+async def test_lead_isolation_between_tenants(db_sessionmaker):
+    await assert_tenant_isolated(db_sessionmaker, Lead, _create_lead)
+
+
+async def _create_lead_nota(session, tenant_id: uuid.UUID) -> None:
+    session.add(LeadNota(lead_id=uuid.uuid4(), autor_id=uuid.uuid4(), texto="Nota teste"))
+
+
+async def test_lead_nota_isolation_between_tenants(db_sessionmaker):
+    await assert_tenant_isolated(db_sessionmaker, LeadNota, _create_lead_nota)
 
 
 async def test_query_without_tenant_context_raises(db_session):

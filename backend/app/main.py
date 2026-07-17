@@ -8,9 +8,12 @@ from app.health import router as health_router
 from app.middleware.tenant import IdentifyTenantMiddleware
 from app.modules.avaliacoes.router import router as avaliacoes_router
 from app.modules.imoveis.router import router as imoveis_router
+from app.modules.leads import listeners as leads_listeners  # noqa: F401  (registra @on)
+from app.modules.leads.router import router as leads_router
 from app.modules.licenciamento import listeners as licenciamento_listeners  # noqa: F401  (registra @on)
 from app.modules.licenciamento import service as licenciamento_service
 from app.modules.licenciamento.router import router as licenciamento_router
+from app.modules.notificacoes.router import router as notificacoes_router
 from app.modules.precos_mercado import service as precos_mercado_service
 from app.modules.precos_mercado.router import router as precos_mercado_router
 from app.modules.sugestoes_preco.router import router as sugestoes_preco_router
@@ -43,6 +46,8 @@ def create_app() -> FastAPI:
     app.include_router(precos_mercado_router, prefix="/api/v1")
     app.include_router(avaliacoes_router, prefix="/api/v1")
     app.include_router(sugestoes_preco_router, prefix="/api/v1")
+    app.include_router(leads_router, prefix="/api/v1")
+    app.include_router(notificacoes_router, prefix="/api/v1")
 
     return app
 

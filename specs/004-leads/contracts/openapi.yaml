@@ -1,0 +1,151 @@
+openapi: 3.0.3
+info:
+  title: Proptech Avaliador API — Feature 004 (Gestão de Leads / Pipeline)
+  version: 0.4.0
+tags:
+  - name: leads
+
+paths:
+  /leads:
+    get:
+      tags: [leads]
+      summary: Lista leads (corretor vê os próprios; admin vê todos)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: estagio, in: query, required: false, schema: { type: string, enum: [novo, contatado, visita, proposta, fechado, perdido] } }
+        - { name: origem, in: query, required: false, schema: { type: string, enum: [site, indicacao, portal, redes_sociais, outro] } }
+      responses:
+        '200':
+          description: Lista de leads
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Lead' }
+    post:
+      tags: [leads]
+      summary: Cadastra um lead
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LeadCreate' }
+      responses:
+        '201':
+          description: Lead criado (emite notificação em tempo real)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Lead' }
+        '404': { description: imovel_id informado não encontrado (inclui de outro tenant) }
+
+  /leads/{lead_id}/estagio:
+    parameters:
+      - { name: lead_id, in: path, required: true, schema: { type: string, format: uuid } }
+    put:
+      tags: [leads]
+      summary: Move o lead para outro estágio do pipeline
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [estagio]
+              properties:
+                estagio: { type: string, enum: [novo, contatado, visita, proposta, fechado, perdido] }
+      responses:
+        '200':
+          description: Lead atualizado (gera nota automática de histórico)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Lead' }
+        '404': { description: Lead não encontrado (inclui de outro tenant) }
+        '422': { description: Lead já está em estágio terminal (fechado/perdido) }
+
+  /leads/{lead_id}/notas:
+    parameters:
+      - { name: lead_id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [leads]
+      summary: Histórico de notas do lead (manuais e automáticas), mais recente primeiro
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Lista de notas
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/LeadNota' }
+    post:
+      tags: [leads]
+      summary: Adiciona uma nota manual ao lead
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [texto]
+              properties:
+                texto: { type: string }
+      responses:
+        '201':
+          description: Nota criada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LeadNota' }
+
+  /ws/notificacoes:
+    get:
+      tags: [leads]
+      summary: >-
+        WebSocket de notificações em tempo real do tenant (upgrade de protocolo — descrito aqui
+        apenas para documentação, não é uma rota REST comum). Autenticado via query param `token`
+        (access token JWT). Único evento no MVP: {"tipo": "lead_novo", "lead": {...}}.
+      parameters:
+        - { name: token, in: query, required: true, schema: { type: string } }
+      responses:
+        '101': { description: Protocolo trocado para WebSocket }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    LeadCreate:
+      type: object
+      required: [nome, origem]
+      properties:
+        nome: { type: string }
+        email: { type: string, nullable: true }
+        telefone: { type: string, nullable: true }
+        origem: { type: string, enum: [site, indicacao, portal, redes_sociais, outro] }
+        imovel_id: { type: string, format: uuid, nullable: true }
+
+    Lead:
+      allOf:
+        - $ref: '#/components/schemas/LeadCreate'
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+            corretor_id: { type: string, format: uuid }
+            estagio: { type: string, enum: [novo, contatado, visita, proposta, fechado, perdido] }
+            created_at: { type: string, format: date-time }
+            updated_at: { type: string, format: date-time }
+
+    LeadNota:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        lead_id: { type: string, format: uuid }
+        autor_id: { type: string, format: uuid }
+        texto: { type: string }
+        automatica: { type: boolean }
+        created_at: { type: string, format: date-time }
