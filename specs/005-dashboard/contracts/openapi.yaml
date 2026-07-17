@@ -1,0 +1,93 @@
+openapi: 3.0.3
+info:
+  title: Proptech Avaliador API — Feature 005 (Dashboard Analítico)
+  version: 0.5.0
+tags:
+  - name: dashboard
+
+paths:
+  /dashboard/resumo:
+    get:
+      tags: [dashboard]
+      summary: Cartões de estado agregados do tenant (ou da carteira, se corretor)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: meses, in: query, schema: { type: integer, default: 12, minimum: 1, maximum: 36 } }
+        - { name: dias_sem_contato, in: query, schema: { type: integer, default: 3, minimum: 1 } }
+      responses:
+        '200':
+          description: Resumo de métricas
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DashboardResumo' }
+
+  /dashboard/vendas-por-mes:
+    get:
+      tags: [dashboard]
+      summary: Série temporal de vendas (quantidade e valor total) dos últimos N meses
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: meses, in: query, schema: { type: integer, default: 12, minimum: 1, maximum: 36 } }
+      responses:
+        '200':
+          description: Série sempre com exatamente `meses` pontos (mês sem venda = zero)
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/VendasMes' }
+
+  /dashboard/leads-por-origem:
+    get:
+      tags: [dashboard]
+      summary: Contagem de leads por origem no período
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: meses, in: query, schema: { type: integer, default: 12, minimum: 1, maximum: 36 } }
+      responses:
+        '200':
+          description: Só origens com pelo menos 1 lead no período aparecem
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/LeadsOrigem' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    DashboardResumo:
+      type: object
+      properties:
+        imoveis_por_status:
+          type: object
+          additionalProperties: { type: integer }
+          example: { disponivel: 12, reservado: 2, vendido: 5, alugado: 3 }
+        leads_ativos: { type: integer }
+        leads_sem_contato: { type: integer }
+        taxa_conversao: { type: number, description: "0 a 1; 0 quando não há leads no período" }
+        ticket_medio:
+          type: number
+          nullable: true
+          description: "Decimal serializado; null (não 0) quando não há venda no período"
+        tempo_medio_venda_imovel_dias: { type: number, nullable: true }
+        tempo_medio_fechamento_lead_dias: { type: number, nullable: true }
+
+    VendasMes:
+      type: object
+      properties:
+        ano: { type: integer }
+        mes: { type: integer, minimum: 1, maximum: 12 }
+        quantidade: { type: integer }
+        valor_total: { type: number, description: "0 (não null) quando não há venda no mês" }
+
+    LeadsOrigem:
+      type: object
+      properties:
+        origem: { type: string, enum: [site, indicacao, portal, redes_sociais, outro] }
+        quantidade: { type: integer }
