@@ -7,9 +7,6 @@ __pycache__/
 .coverage
 htmlcov/
 *.db
-
-node_modules/
-dist/
-
+tests/
 .env
-.env.prod
+.env.example
