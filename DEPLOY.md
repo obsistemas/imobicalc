@@ -12,8 +12,8 @@ rede interna do compose) e as portas de backend/frontend são configuráveis.
   ```bash
   ss -tlnp
   ```
-  Os padrões sugeridos (8001 e 8080) evitam os mais comuns (80, 443, 8000, 5432, 6379, 3000),
-  mas confirme contra o que já está rodando no servidor antes de seguir.
+  Os padrões sugeridos (8001 e 8090) evitam os mais comuns (80, 443, 8000, 8080, 5432, 6379,
+  3000), mas confirme contra o que já está rodando no servidor antes de seguir.
 
 ## 2. Levar o código para o servidor
 
@@ -57,11 +57,11 @@ seguro rodar de novo em toda atualização).
 curl -s http://localhost:${BACKEND_PORT:-8001}/health
 # {"status":"ok","database":true,"redis":true}
 
-curl -s -o /dev/null -w "%{http_code}\n" http://localhost:${FRONTEND_PORT:-8080}/
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:${FRONTEND_PORT:-8090}/
 # 200
 ```
 
-Acesse `http://SEU_IP:8080` (ou a porta que você configurou) no navegador.
+Acesse `http://SEU_IP:8090` (ou a porta que você configurou) no navegador.
 
 ## 6. Atualizar uma versão nova
 
