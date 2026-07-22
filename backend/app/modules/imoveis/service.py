@@ -2,9 +2,11 @@ import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
 
+from redis.asyncio import Redis
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.events import emit
 from app.core.tenant_context import tenant_scope
 from app.modules.imoveis.models import Imovel, ImovelStatus, ImovelTipo
 from app.modules.imoveis.schemas import ImovelCreate, ImovelUpdate
@@ -45,6 +47,45 @@ def _garante_visivel(imovel: Imovel, user: User) -> None:
         raise ImovelNotFoundError(imovel.uuid)
 
 
+async def _verificar_e_emitir_subprecificacao(
+    session: AsyncSession, *, tenant_id: uuid.UUID, imovel: Imovel, redis: Redis
+) -> None:
+    """Best-effort (006-dados-mercado, US2/AC2): sem valor anunciado ou sem preço de mercado
+    disponível (nem fallback), simplesmente não emite alerta — nunca bloqueia o cadastro."""
+    if imovel.valor_anunciado is None:
+        return
+
+    from app.config import settings
+    from app.modules.precos_mercado.alerta import calcular_alerta_subprecificado
+    from app.modules.precos_mercado.service import PrecoMercadoNaoEncontradoError, buscar_preco_mercado
+
+    try:
+        preco, _eh_fallback = await buscar_preco_mercado(
+            session, bairro=imovel.bairro, cidade=imovel.cidade, tipo=imovel.tipo
+        )
+    except PrecoMercadoNaoEncontradoError:
+        return
+
+    area = imovel.area_util if imovel.area_util is not None else imovel.area_total
+    alerta = calcular_alerta_subprecificado(
+        valor_anunciado=imovel.valor_anunciado,
+        preco_m2=preco.preco_m2,
+        area=area,
+        threshold=settings.subprecificado_threshold,
+    )
+    if alerta is None:
+        return
+
+    await emit(
+        "imovel_subprecificado",
+        tenant_id=tenant_id,
+        redis=redis,
+        imovel=imovel,
+        valor_esperado=alerta.valor_esperado,
+        percentual_abaixo=alerta.percentual_abaixo,
+    )
+
+
 async def criar_imovel(
     session: AsyncSession,
     *,
@@ -52,6 +93,7 @@ async def criar_imovel(
     corretor: User,
     payload: ImovelCreate,
     cep_driver: CepLookupDriver,
+    redis: Redis,
 ) -> Imovel:
     from app.modules.licenciamento import service as licenciamento_service
 
@@ -65,6 +107,8 @@ async def criar_imovel(
         session.add(imovel)
         await session.flush()
         await session.commit()
+
+    await _verificar_e_emitir_subprecificacao(session, tenant_id=tenant_id, imovel=imovel, redis=redis)
     return imovel
 
 
@@ -122,7 +166,13 @@ async def listar_imoveis(
 
 
 async def atualizar_imovel(
-    session: AsyncSession, *, tenant_id: uuid.UUID, imovel_uuid: uuid.UUID, user: User, payload: ImovelUpdate
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    imovel_uuid: uuid.UUID,
+    user: User,
+    payload: ImovelUpdate,
+    redis: Redis,
 ) -> Imovel:
     imovel = await obter_imovel(session, tenant_id=tenant_id, imovel_uuid=imovel_uuid, user=user)
     with tenant_scope(tenant_id):
@@ -138,6 +188,8 @@ async def atualizar_imovel(
             imovel.status = payload.status
         await session.commit()
         await session.refresh(imovel)
+
+    await _verificar_e_emitir_subprecificacao(session, tenant_id=tenant_id, imovel=imovel, redis=redis)
     return imovel
 
 

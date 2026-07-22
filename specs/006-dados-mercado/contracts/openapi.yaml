@@ -1,0 +1,77 @@
+openapi: 3.0.3
+info:
+  title: Proptech Avaliador API — Feature 006 (Dados de Mercado)
+  version: 0.6.0
+tags:
+  - name: precos-mercado
+
+paths:
+  /admin/precos-mercado/importar:
+    post:
+      tags: [precos-mercado]
+      summary: Importa preços de mercado em lote via CSV (admin)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                arquivo:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Relatório da importação (mesmo com linhas com erro — nunca falha o arquivo todo)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RelatorioImportacao' }
+        '403': { description: Apenas admin pode importar preços de mercado }
+
+  /precos-mercado/mapa-calor:
+    get:
+      tags: [precos-mercado]
+      summary: Pontos para o mapa de calor de preços por região
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Só entradas com coordenada geocodificada
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/PontoMapaCalor' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    RelatorioImportacao:
+      type: object
+      properties:
+        total_linhas: { type: integer }
+        criados: { type: integer }
+        atualizados: { type: integer }
+        erros:
+          type: array
+          items:
+            type: object
+            properties:
+              linha: { type: integer }
+              motivo: { type: string }
+
+    PontoMapaCalor:
+      type: object
+      properties:
+        bairro: { type: string }
+        cidade: { type: string }
+        estado: { type: string, nullable: true }
+        tipo: { type: string, enum: [apartamento, casa, terreno, comercial, galpao] }
+        latitude: { type: number }
+        longitude: { type: number }
+        preco_m2: { type: number }

@@ -2,9 +2,11 @@ import uuid
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user
+from app.core.redis_client import get_redis
 from app.database import get_session
 from app.modules.imoveis import service
 from app.modules.imoveis.models import ImovelStatus, ImovelTipo
@@ -24,10 +26,11 @@ async def criar_imovel(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(get_current_user),
     cep_driver: CepLookupDriver = Depends(get_cep_driver),
+    redis: Redis = Depends(get_redis),
 ):
     try:
         imovel = await service.criar_imovel(
-            session, tenant_id=user.tenant_id, corretor=user, payload=payload, cep_driver=cep_driver
+            session, tenant_id=user.tenant_id, corretor=user, payload=payload, cep_driver=cep_driver, redis=redis
         )
     except ImovelLimitExceededError as exc:
         raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail=_LIMITE_PLANO_DETAIL) from exc
@@ -82,10 +85,11 @@ async def atualizar_imovel(
     payload: ImovelUpdate,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(get_current_user),
+    redis: Redis = Depends(get_redis),
 ):
     try:
         imovel = await service.atualizar_imovel(
-            session, tenant_id=user.tenant_id, imovel_uuid=imovel_id, user=user, payload=payload
+            session, tenant_id=user.tenant_id, imovel_uuid=imovel_id, user=user, payload=payload, redis=redis
         )
     except service.ImovelNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Imóvel não encontrado") from exc

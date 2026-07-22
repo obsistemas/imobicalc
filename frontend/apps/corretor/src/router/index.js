@@ -6,12 +6,14 @@ import DashboardView from "../views/DashboardView.vue";
 import HomeView from "../views/HomeView.vue";
 import ImovelFormView from "../views/ImovelFormView.vue";
 import ImoveisListView from "../views/ImoveisListView.vue";
+import ImportacaoPrecosView from "../views/ImportacaoPrecosView.vue";
 import InviteTeamView from "../views/InviteTeamView.vue";
 import InvoicesView from "../views/InvoicesView.vue";
 import LeadDetailView from "../views/LeadDetailView.vue";
 import LeadFormView from "../views/LeadFormView.vue";
 import LeadsListView from "../views/LeadsListView.vue";
 import LoginView from "../views/LoginView.vue";
+import MapaCalorView from "../views/MapaCalorView.vue";
 import PlanoView from "../views/PlanoView.vue";
 import SignupView from "../views/SignupView.vue";
 import TwoFactorSetupView from "../views/TwoFactorSetupView.vue";
@@ -36,6 +38,8 @@ const router = createRouter({
     { path: "/leads", name: "leads", component: LeadsListView },
     { path: "/leads/novo", name: "lead-novo", component: LeadFormView },
     { path: "/leads/:id", name: "lead-detalhe", component: LeadDetailView },
+    { path: "/precos-mercado/mapa-calor", name: "mapa-calor", component: MapaCalorView },
+    { path: "/precos-mercado/importar", name: "importar-precos", component: ImportacaoPrecosView },
     { path: "/2fa/setup", name: "2fa-setup", component: TwoFactorSetupView },
     { path: "/equipe/convidar", name: "convidar-corretor", component: InviteTeamView },
     { path: "/plano", name: "plano", component: PlanoView },

@@ -1,3 +1,4 @@
+from decimal import Decimal
 from urllib.parse import parse_qs, urlparse
 
 import pyotp
@@ -5,17 +6,28 @@ import pytest
 from sqlalchemy import select
 
 from app.core.tenant_context import system_scope
+from app.main import app
 from app.modules.imoveis.models import ImovelTipo
+from app.modules.precos_mercado.geocoding_driver import FakeGeocodingDriver, get_geocoding_driver
 from app.modules.precos_mercado.models import PadraoConstrutivo, PrecoMercado
 from app.modules.precos_mercado.service import (
     CustoConstrucaoNaoEncontradoError,
     PrecoMercadoNaoEncontradoError,
     buscar_custo_construcao,
     buscar_preco_mercado,
+    create_preco_mercado,
     ensure_custo_construcao_seeded,
     ensure_precos_mercado_seeded,
 )
+from app.modules.precos_mercado.schemas import PrecoMercadoCreate
 from app.modules.tenancy.models import Convite
+
+
+def _override_geocoding_driver(driver) -> None:
+    async def _get():
+        return driver
+
+    app.dependency_overrides[get_geocoding_driver] = _get
 
 
 async def _admin_token(client, email="admin-precos@example.com"):
@@ -139,3 +151,60 @@ async def test_buscar_custo_construcao_nao_encontrado_levanta_erro(db_sessionmak
     async with db_sessionmaker() as session:
         with pytest.raises(CustoConstrucaoNaoEncontradoError):
             await buscar_custo_construcao(session, padrao=PadraoConstrutivo.ALTO)
+
+
+# --- T502: geocodificação best-effort na criação -------------------------------------------
+
+
+async def test_create_preco_mercado_geocodificacao_bem_sucedida_preenche_lat_long(db_sessionmaker):
+    driver = FakeGeocodingDriver(respostas={"Jardins|São Paulo": (Decimal("-23.5"), Decimal("-46.6"))})
+    payload = PrecoMercadoCreate(
+        bairro="Jardins", cidade="São Paulo", estado="SP", tipo=ImovelTipo.APARTAMENTO, preco_m2=9000, fonte="teste"
+    )
+    async with db_sessionmaker() as session:
+        preco = await create_preco_mercado(session, payload, geocoding_driver=driver)
+
+    assert preco.latitude == Decimal("-23.5")
+    assert preco.longitude == Decimal("-46.6")
+
+
+async def test_create_preco_mercado_geocodificacao_falha_nao_bloqueia_criacao(db_sessionmaker):
+    driver = FakeGeocodingDriver(sempre_falha=True)
+    payload = PrecoMercadoCreate(
+        bairro="Bairro Desconhecido", cidade="Cidade X", estado="SP", tipo=ImovelTipo.CASA, preco_m2=4000, fonte="teste"
+    )
+    async with db_sessionmaker() as session:
+        preco = await create_preco_mercado(session, payload, geocoding_driver=driver)
+
+    assert preco.latitude is None
+    assert preco.longitude is None
+
+
+async def test_create_preco_mercado_generico_sem_bairro_nao_tenta_geocodificar(db_sessionmaker):
+    chamadas = []
+
+    class DriverEspiao:
+        async def geocodificar(self, **kwargs):
+            chamadas.append(kwargs)
+            return None
+
+    payload = PrecoMercadoCreate(bairro=None, cidade=None, tipo=ImovelTipo.GALPAO, preco_m2=2000, fonte="teste")
+    async with db_sessionmaker() as session:
+        await create_preco_mercado(session, payload, geocoding_driver=DriverEspiao())
+
+    assert chamadas == []
+
+
+async def test_endpoint_criar_preco_mercado_com_geocodificacao(client):
+    admin_token = await _admin_token(client, email="admin-geo@example.com")
+    _override_geocoding_driver(FakeGeocodingDriver(respostas={"Centro|Rio de Janeiro": (Decimal("-22.9"), Decimal("-43.2"))}))
+
+    resp = await client.post(
+        "/admin/precos-mercado",
+        json={"bairro": "Centro", "cidade": "Rio de Janeiro", "tipo": "comercial", "preco_m2": 7000, "fonte": "teste"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["latitude"] is not None
+    assert body["longitude"] is not None

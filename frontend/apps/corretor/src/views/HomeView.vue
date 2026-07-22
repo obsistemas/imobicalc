@@ -12,8 +12,12 @@ const auth = useAuthStore();
         <router-link :to="{ name: 'dashboard' }" class="text-primary">Dashboard</router-link>
         <router-link :to="{ name: 'imoveis' }" class="text-primary">Imóveis</router-link>
         <router-link :to="{ name: 'leads' }" class="text-primary">Leads</router-link>
+        <router-link :to="{ name: 'mapa-calor' }" class="text-primary">Mapa de calor</router-link>
         <router-link :to="{ name: 'plano' }" class="text-primary">Plano</router-link>
         <router-link v-if="auth.isAdmin" :to="{ name: 'faturas' }" class="text-primary">Faturas</router-link>
+        <router-link v-if="auth.isAdmin" :to="{ name: 'importar-precos' }" class="text-primary">
+          Importar preços
+        </router-link>
         <router-link v-if="auth.isAdmin" :to="{ name: 'convidar-corretor' }" class="text-primary">
           Convidar corretor
         </router-link>

@@ -15,6 +15,7 @@ from app.modules.licenciamento import listeners as licenciamento_listeners  # no
 from app.modules.licenciamento import service as licenciamento_service
 from app.modules.licenciamento.router import router as licenciamento_router
 from app.modules.notificacoes.router import router as notificacoes_router
+from app.modules.precos_mercado import listeners as precos_mercado_listeners  # noqa: F401  (registra @on)
 from app.modules.precos_mercado import service as precos_mercado_service
 from app.modules.precos_mercado.router import router as precos_mercado_router
 from app.modules.sugestoes_preco.router import router as sugestoes_preco_router

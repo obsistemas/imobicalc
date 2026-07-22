@@ -31,6 +31,10 @@ class PrecoMercado(Base):
     tipo: Mapped[ImovelTipo] = mapped_column(Enum(ImovelTipo, native_enum=False))
     preco_m2: Mapped[Decimal] = mapped_column(Numeric(12, 4))
     fonte: Mapped[str] = mapped_column(String(200))
+    # Geocodificação best-effort (006-dados-mercado) — nulo quando falha, nunca bloqueia
+    # criação/importação (RN1); usado só pelo mapa de calor.
+    latitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
+    longitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
     atualizado_em: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

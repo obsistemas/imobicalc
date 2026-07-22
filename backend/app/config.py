@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     platform_domain: str = "proptechavaliador.com.br"
     trial_days: int = 7
 
+    # 006-dados-mercado: percentual abaixo do preço de mercado esperado para disparar o
+    # alerta de imóvel subprecificado (RN2).
+    subprecificado_threshold: float = 0.15
+
     sentry_dsn: str | None = None
 
 

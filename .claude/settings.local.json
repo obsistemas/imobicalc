@@ -33,7 +33,10 @@
       "Read(//usr/bin/**)",
       "Bash(/run/host/usr/bin/python3.13 --version)",
       "Bash(mkdir -p /home/obalcon/Antigos/backup/Documentos/Sitios/intelibits/imobicalc/frontend/apps/corretor/src/composables)",
-      "Bash(.venv/bin/pytest tests/test_dashboard.py -q)"
+      "Bash(.venv/bin/pytest tests/test_dashboard.py -q)",
+      "Bash(unzip -l /home/obalcon/Downloads/imobicalc-deploy-2026-07-20-9516906.zip)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(.venv/bin/pytest tests/test_precos_mercado_alerta_ws.py -q)"
     ],
     "additionalDirectories": [
       "/home/obalcon/Antigos/backup/Documentos/Sitios/intelibits/imobicalc/backend/app",
