@@ -1,0 +1,203 @@
+openapi: 3.0.3
+info:
+  title: Proptech Avaliador API — Feature 007 (Superadmin)
+  version: 0.7.0
+tags:
+  - name: superadmin
+
+paths:
+  /admin/auth/login:
+    post:
+      tags: [superadmin]
+      summary: Login do superadmin (conta fora do modelo de tenant)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, senha]
+              properties:
+                email: { type: string, format: email }
+                senha: { type: string }
+      responses:
+        '200':
+          description: Token sem tenant_id, papel=superadmin
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenResponse' }
+        '401': { description: Credenciais inválidas ou conta inativa }
+
+  /admin/tenants:
+    get:
+      tags: [superadmin]
+      summary: Lista todos os tenants da plataforma (cross-tenant)
+      security: [{ superadminAuth: [] }]
+      parameters:
+        - { name: pagina, in: query, schema: { type: integer, default: 1 } }
+        - { name: tamanho_pagina, in: query, schema: { type: integer, default: 20 } }
+      responses:
+        '200':
+          description: Lista paginada
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/TenantResumo' }
+        '403': { description: Token não é de superadmin }
+
+  /admin/tenants/{tenant_id}/metricas:
+    get:
+      tags: [superadmin]
+      summary: Uso individual de um tenant (usuários, imóveis, leads, avaliações, license)
+      security: [{ superadminAuth: [] }]
+      parameters:
+        - { name: tenant_id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MetricasTenant' }
+        '403': { description: Token não é de superadmin }
+        '404': { description: Tenant não encontrado }
+
+  /admin/tenants/{tenant_id}/suspender:
+    post:
+      tags: [superadmin]
+      summary: Suspende um tenant manualmente — bloqueia acesso imediato de todos os usuários dele (RN2)
+      security: [{ superadminAuth: [] }]
+      parameters:
+        - { name: tenant_id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Tenant suspenso, audit log gravado }
+        '403': { description: Token não é de superadmin }
+        '404': { description: Tenant não encontrado }
+
+  /admin/tenants/{tenant_id}/reativar:
+    post:
+      tags: [superadmin]
+      summary: Reativa um tenant suspenso — acesso volta sem precisar de novo login
+      security: [{ superadminAuth: [] }]
+      parameters:
+        - { name: tenant_id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Tenant reativado, audit log gravado }
+        '403': { description: Token não é de superadmin }
+        '404': { description: Tenant não encontrado }
+
+  /admin/uso/plataforma:
+    get:
+      tags: [superadmin]
+      summary: Contagem de tenants por status + uso agregado da plataforma inteira
+      security: [{ superadminAuth: [] }]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UsoPlataforma' }
+        '403': { description: Token não é de superadmin }
+
+  /admin/faturamento/consolidado:
+    get:
+      tags: [superadmin]
+      summary: MRR, receita paga no mês corrente e contagem de invoices por status
+      security: [{ superadminAuth: [] }]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FaturamentoConsolidado' }
+        '403': { description: Token não é de superadmin }
+
+  /admin/auditoria/logs:
+    get:
+      tags: [superadmin]
+      summary: Logs de auditoria de todos os tenants (somente leitura)
+      security: [{ superadminAuth: [] }]
+      parameters:
+        - { name: tenant_id, in: query, required: false, schema: { type: string, format: uuid } }
+        - { name: acao, in: query, required: false, schema: { type: string } }
+        - { name: desde, in: query, required: false, schema: { type: string, format: date } }
+        - { name: ate, in: query, required: false, schema: { type: string, format: date } }
+        - { name: pagina, in: query, schema: { type: integer, default: 1 } }
+      responses:
+        '200':
+          description: Lista paginada, cross-tenant
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/AuditLogEntry' }
+        '403': { description: Token não é de superadmin }
+
+components:
+  securitySchemes:
+    superadminAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token emitido por POST /admin/auth/login — payload sem tenant_id, papel=superadmin
+
+  schemas:
+    TokenResponse:
+      type: object
+      properties:
+        access_token: { type: string }
+        token_type: { type: string, example: bearer }
+        expires_in: { type: integer, description: segundos até expirar }
+
+    TenantResumo:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        nome: { type: string }
+        slug: { type: string }
+        status: { type: string, enum: [trial, active, past_due, suspended, cancelled] }
+        plano: { type: string }
+        criado_em: { type: string, format: date-time }
+
+    MetricasTenant:
+      type: object
+      properties:
+        tenant: { $ref: '#/components/schemas/TenantResumo' }
+        usuarios_ativos: { type: integer }
+        imoveis_ativos: { type: integer }
+        leads_total: { type: integer }
+        avaliacoes_mes: { type: integer }
+        license:
+          type: object
+          properties:
+            plano: { type: string }
+            status: { type: string }
+            trial_termina_em: { type: string, format: date-time, nullable: true }
+
+    UsoPlataforma:
+      type: object
+      properties:
+        tenants_por_status:
+          type: object
+          additionalProperties: { type: integer }
+        total_usuarios: { type: integer }
+        total_imoveis: { type: integer }
+        total_leads: { type: integer }
+        total_avaliacoes: { type: integer }
+
+    FaturamentoConsolidado:
+      type: object
+      properties:
+        mrr: { type: string, description: "soma de License.preco_congelado das licenses ACTIVE (RN4)" }
+        receita_paga_mes_atual: { type: string }
+        invoices_por_status:
+          type: object
+          additionalProperties: { type: integer }
+
+    AuditLogEntry:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tenant_id: { type: string, format: uuid }
+        ator_user_id: { type: integer, nullable: true }
+        acao: { type: string }
+        entidade: { type: string }
+        entidade_id: { type: string }
+        created_at: { type: string, format: date-time }

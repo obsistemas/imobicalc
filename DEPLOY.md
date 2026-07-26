@@ -40,6 +40,10 @@ Edite `.env.prod` e preencha (nunca reutilize os valores de exemplo):
 - `JWT_SECRET` — gerar com `python3 -c "import secrets; print(secrets.token_urlsafe(48))"`.
 - `ENCRYPTION_KEY` — gerar com `python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` (precisa ter `cryptography` instalado; se não tiver Python à mão localmente, rode dentro do container depois do primeiro build: `docker compose -f docker-compose.prod.yml run --rm backend python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`).
 - `BACKEND_PORT`/`FRONTEND_PORT` — ajuste se colidir com o que já roda no servidor (passo 1).
+- `SUPERADMIN_EMAIL`/`SUPERADMIN_PASSWORD` — credenciais do painel da plataforma
+  (`/admin/login`, 007-superadmin), fora do modelo de tenant. Provisionado automaticamente no
+  primeiro start (idempotente — reiniciar depois não reseta a senha). Deixe em branco para não
+  criar a conta (painel fica inacessível até preencher e reiniciar).
 - Mercado Pago/Sentry — opcional, deixe em branco se ainda não for usar.
 
 ## 4. Subir

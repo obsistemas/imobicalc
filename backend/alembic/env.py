@@ -11,6 +11,7 @@ from app.config import settings
 from app.database import Base
 from app.modules.auditoria import models as auditoria_models  # noqa: F401  (popula Base.metadata)
 from app.modules.licenciamento import models as licenciamento_models  # noqa: F401  (popula Base.metadata)
+from app.modules.superadmin import models as superadmin_models  # noqa: F401  (popula Base.metadata)
 from app.modules.tenancy import models as tenancy_models  # noqa: F401  (popula Base.metadata)
 
 # this is the Alembic Config object, which provides

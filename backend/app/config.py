@@ -14,6 +14,12 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 7
 
+    # 007-superadmin: conta única de plataforma, fora do modelo de tenant. Provisionada no boot
+    # (idempotente) só se as duas vierem preenchidas — vazio nos ambientes onde não se aplica.
+    superadmin_email: str = ""
+    superadmin_password: str = ""
+    superadmin_token_expire_minutes: int = 60
+
     # Fernet key (32 bytes urlsafe-base64) — gerar com `Fernet.generate_key()` em produção.
     encryption_key: str = "OT-EG2LO91jz5OWQ9y0zWXBk6f0K1UzLQeq7dK3s6xM="
 

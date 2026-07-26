@@ -116,6 +116,13 @@ async def get_user_by_uuid(session: AsyncSession, tenant_id: uuid.UUID, user_uui
         return result.scalar_one_or_none()
 
 
+async def get_tenant_by_uuid(session: AsyncSession, tenant_id: uuid.UUID) -> Tenant | None:
+    # Tenant não é TenantScopedMixin (é a própria unidade de isolamento) — consulta direta,
+    # sem tenant_scope/system_scope.
+    result = await session.execute(select(Tenant).where(Tenant.uuid == tenant_id))
+    return result.scalar_one_or_none()
+
+
 async def create_convite(
     session: AsyncSession, *, tenant_id: uuid.UUID, criado_por: User, email: str
 ) -> Convite:

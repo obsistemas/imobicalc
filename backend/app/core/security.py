@@ -71,3 +71,33 @@ def decode_token(token: str, *, expected_type: TokenType) -> dict:
     if payload.get("type") != expected_type.value:
         raise InvalidTokenError(f"esperava token do tipo {expected_type.value}")
     return payload
+
+
+SUPERADMIN_PAPEL = "superadmin"
+
+
+def create_superadmin_access_token(*, superadmin_id: uuid.UUID) -> str:
+    """Token do painel de plataforma (007-superadmin) — deliberadamente sem `tenant_id` no
+    payload: é isso que o distingue de um token de tenant (RN3), não um valor sentinela."""
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": str(superadmin_id),
+        "papel": SUPERADMIN_PAPEL,
+        "type": TokenType.ACCESS.value,
+        "iat": now,
+        "exp": now + timedelta(minutes=settings.superadmin_token_expire_minutes),
+        "jti": str(uuid.uuid4()),
+    }
+    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+
+
+def decode_superadmin_token(token: str) -> dict:
+    try:
+        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+    except jwt.PyJWTError as exc:
+        raise InvalidTokenError(str(exc)) from exc
+    if payload.get("type") != TokenType.ACCESS.value:
+        raise InvalidTokenError("esperava token de acesso")
+    if "tenant_id" in payload or payload.get("papel") != SUPERADMIN_PAPEL:
+        raise InvalidTokenError("token não é de superadmin")
+    return payload

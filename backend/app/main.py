@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.config import settings
 from app.database import SessionLocal
 from app.health import router as health_router
 from app.middleware.tenant import IdentifyTenantMiddleware
@@ -19,6 +20,8 @@ from app.modules.precos_mercado import listeners as precos_mercado_listeners  # 
 from app.modules.precos_mercado import service as precos_mercado_service
 from app.modules.precos_mercado.router import router as precos_mercado_router
 from app.modules.sugestoes_preco.router import router as sugestoes_preco_router
+from app.modules.superadmin import service as superadmin_service
+from app.modules.superadmin.router import router as superadmin_router
 from app.modules.tenancy.convites_router import router as convites_router
 from app.modules.tenancy.router import router as tenancy_router
 from app.observability import configure_logging, configure_sentry
@@ -30,6 +33,9 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
         await licenciamento_service.ensure_plans_seeded(session)
         await precos_mercado_service.ensure_precos_mercado_seeded(session)
         await precos_mercado_service.ensure_custo_construcao_seeded(session)
+        await superadmin_service.bootstrap_superadmin(
+            session, email=settings.superadmin_email, password=settings.superadmin_password
+        )
     yield
 
 
@@ -51,6 +57,7 @@ def create_app() -> FastAPI:
     app.include_router(leads_router, prefix="/api/v1")
     app.include_router(notificacoes_router, prefix="/api/v1")
     app.include_router(dashboard_router, prefix="/api/v1")
+    app.include_router(superadmin_router, prefix="/api/v1")
 
     return app
 

@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from "vue-router";
 import { useAuthStore } from "../stores/auth";
+import { useSuperadminAuthStore } from "../stores/superadmin";
 import AcceptInviteView from "../views/AcceptInviteView.vue";
 import AvaliacaoView from "../views/AvaliacaoView.vue";
 import DashboardView from "../views/DashboardView.vue";
@@ -16,6 +17,10 @@ import LoginView from "../views/LoginView.vue";
 import MapaCalorView from "../views/MapaCalorView.vue";
 import PlanoView from "../views/PlanoView.vue";
 import SignupView from "../views/SignupView.vue";
+import SuperadminAuditoriaView from "../views/SuperadminAuditoriaView.vue";
+import SuperadminDashboardView from "../views/SuperadminDashboardView.vue";
+import SuperadminLoginView from "../views/SuperadminLoginView.vue";
+import SuperadminTenantsView from "../views/SuperadminTenantsView.vue";
 import TwoFactorSetupView from "../views/TwoFactorSetupView.vue";
 
 const router = createRouter({
@@ -44,10 +49,24 @@ const router = createRouter({
     { path: "/equipe/convidar", name: "convidar-corretor", component: InviteTeamView },
     { path: "/plano", name: "plano", component: PlanoView },
     { path: "/faturas", name: "faturas", component: InvoicesView },
+    { path: "/admin/login", name: "admin-login", component: SuperadminLoginView, meta: { public: true, superadmin: true } },
+    { path: "/admin", name: "admin-dashboard", component: SuperadminDashboardView, meta: { superadmin: true } },
+    { path: "/admin/tenants", name: "admin-tenants", component: SuperadminTenantsView, meta: { superadmin: true } },
+    { path: "/admin/auditoria", name: "admin-auditoria", component: SuperadminAuditoriaView, meta: { superadmin: true } },
   ],
 });
 
 router.beforeEach((to) => {
+  // Rotas /admin/* usam uma sessão própria (007-superadmin), separada do login de
+  // imobiliária — nunca compartilham o mesmo guard nem o mesmo storage de token.
+  if (to.meta.superadmin) {
+    const superadminAuth = useSuperadminAuthStore();
+    if (!to.meta.public && !superadminAuth.isAuthenticated) {
+      return { name: "admin-login" };
+    }
+    return true;
+  }
+
   const auth = useAuthStore();
   if (!to.meta.public && !auth.isAuthenticated) {
     return { name: "login" };
