@@ -1,7 +1,7 @@
 import uuid
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,7 +10,7 @@ from app.core.redis_client import get_redis
 from app.database import get_session
 from app.modules.imoveis import service
 from app.modules.imoveis.models import ImovelStatus, ImovelTipo
-from app.modules.imoveis.schemas import ImovelCreate, ImovelOut, ImovelPage, ImovelUpdate
+from app.modules.imoveis.schemas import ImovelCreate, ImovelOut, ImovelPage, ImovelPublico, ImovelUpdate
 from app.modules.imoveis.viacep_driver import CepLookupDriver, get_cep_driver
 from app.modules.licenciamento.service import ImovelLimitExceededError
 from app.modules.tenancy.models import User
@@ -18,6 +18,23 @@ from app.modules.tenancy.models import User
 router = APIRouter(tags=["imoveis"])
 
 _LIMITE_PLANO_DETAIL = "Limite de imóveis do plano atingido — faça upgrade para cadastrar mais imóveis"
+_IMOVEL_NAO_ENCONTRADO = "Imóvel não encontrado"
+
+
+@router.get("/imoveis/publico/{imovel_id}", response_model=ImovelPublico)
+async def obter_imovel_publico(
+    imovel_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    tenant_id = getattr(request.state, "tenant_id", None)
+    if tenant_id is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_IMOVEL_NAO_ENCONTRADO)
+    try:
+        imovel = await service.obter_imovel_publico(session, tenant_id=uuid.UUID(str(tenant_id)), imovel_uuid=imovel_id)
+    except service.ImovelNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_IMOVEL_NAO_ENCONTRADO) from exc
+    return ImovelPublico.from_imovel(imovel)
 
 
 @router.post("/imoveis", response_model=ImovelOut, status_code=status.HTTP_201_CREATED)

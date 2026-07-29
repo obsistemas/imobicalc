@@ -5,6 +5,8 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
+import app.core.redis_client as redis_client
+import app.middleware.tenant as tenant_middleware
 from app.core.redis_client import get_redis
 from app.database import Base, get_session
 from app.main import app
@@ -56,11 +58,21 @@ async def client(db_sessionmaker, fake_redis):
     app.dependency_overrides[get_session] = _override_get_session
     app.dependency_overrides[get_redis] = _override_get_redis
 
+    # IdentifyTenantMiddleware resolve tenant por Host header chamando get_redis_singleton() e
+    # abrindo sua própria SessionLocal diretamente (fora do sistema de Depends do FastAPI, já
+    # que é middleware ASGI puro) — sem isso, esse caminho tentaria conectar num Redis/Postgres
+    # de verdade mesmo com os overrides acima.
+    redis_client._redis = fake_redis
+    original_session_local = tenant_middleware.SessionLocal
+    tenant_middleware.SessionLocal = db_sessionmaker
+
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver/api/v1") as ac:
         yield ac
 
     app.dependency_overrides.clear()
+    redis_client._redis = None
+    tenant_middleware.SessionLocal = original_session_local
 
 
 @pytest.fixture(autouse=True)

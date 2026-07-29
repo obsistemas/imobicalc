@@ -123,3 +123,40 @@ class ImovelPage(BaseModel):
     skip: int
     limit: int
     items: list[ImovelOut]
+
+
+class ImovelPublico(BaseModel):
+    """DTO da página pública do imóvel (008-captacao-leads) — nunca inclui campos internos
+    (matrícula, IPTU/escritura, valor_avaliado, corretor_id)."""
+
+    id: uuid.UUID
+    titulo: str
+    descricao: str | None
+    bairro: str
+    cidade: str
+    estado: str
+    tipo: ImovelTipo
+    area_total: Decimal
+    quartos: int | None
+    banheiros: int | None
+    vagas: int | None
+    valor_anunciado: Decimal | None
+    fotos: list[str]
+
+    @classmethod
+    def from_imovel(cls, imovel: Imovel) -> "ImovelPublico":
+        return cls(
+            id=imovel.uuid,
+            titulo=imovel.titulo,
+            descricao=imovel.descricao,
+            bairro=imovel.bairro,
+            cidade=imovel.cidade,
+            estado=imovel.estado,
+            tipo=imovel.tipo,
+            area_total=imovel.area_total,
+            quartos=imovel.quartos,
+            banheiros=imovel.banheiros,
+            vagas=imovel.vagas,
+            valor_anunciado=imovel.valor_anunciado,
+            fotos=json.loads(imovel.fotos),
+        )

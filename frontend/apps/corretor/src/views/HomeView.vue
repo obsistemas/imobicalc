@@ -21,6 +21,9 @@ const auth = useAuthStore();
         <router-link v-if="auth.isAdmin" :to="{ name: 'convidar-corretor' }" class="text-primary">
           Convidar corretor
         </router-link>
+        <router-link v-if="auth.isAdmin" :to="{ name: 'integracao-api-key' }" class="text-primary">
+          Webhook de leads
+        </router-link>
         <router-link v-if="auth.isAdmin && !auth.user?.totp_enabled" :to="{ name: '2fa-setup' }" class="text-primary">
           Ativar 2FA
         </router-link>

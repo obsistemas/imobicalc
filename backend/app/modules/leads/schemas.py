@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 from app.modules.leads.models import EstagioLead, Lead, LeadNota, OrigemLead
 
@@ -14,6 +14,43 @@ class LeadCreate(BaseModel):
     imovel_id: uuid.UUID | None = None
 
 
+class _ExigeContato(BaseModel):
+    """Mixin de validação (008-captacao-leads, RN3): diferente do LeadCreate (cadastro manual,
+    onde um corretor pode ter motivo para um contato incompleto), os caminhos automáticos
+    exigem ao menos telefone ou email — ninguém valida o dado ao vivo."""
+
+    email: str | None = None
+    telefone: str | None = None
+
+    @model_validator(mode="after")
+    def _telefone_ou_email(self) -> "_ExigeContato":
+        if not self.email and not self.telefone:
+            raise ValueError("informe ao menos telefone ou email")
+        return self
+
+
+class LeadPublicoCreate(_ExigeContato):
+    nome: str
+    imovel_id: uuid.UUID
+
+
+class LeadWebhookCreate(_ExigeContato):
+    nome: str
+    origem: OrigemLead | None = None
+    imovel_id: uuid.UUID | None = None
+
+
+class ApiKeyGerada(BaseModel):
+    api_key: str
+    created_at: datetime
+
+
+class ApiKeyStatus(BaseModel):
+    existe: bool
+    created_at: datetime | None = None
+    last_used_at: datetime | None = None
+
+
 class LeadEstagioUpdate(BaseModel):
     estagio: EstagioLead
 
@@ -24,7 +61,7 @@ class LeadNotaCreate(BaseModel):
 
 class LeadOut(BaseModel):
     id: uuid.UUID
-    corretor_id: uuid.UUID
+    corretor_id: uuid.UUID | None
     imovel_id: uuid.UUID | None
     nome: str
     email: str | None

@@ -137,6 +137,16 @@ onMounted(carregar);
                 >
                   Avaliar
                 </router-link>
+                <a
+                  v-if="imovel.status === 'disponivel'"
+                  :href="`/publico/imoveis/${imovel.id}`"
+                  target="_blank"
+                  rel="noopener"
+                  class="ml-3 text-primary"
+                  @click.stop
+                >
+                  Página pública
+                </a>
               </td>
             </tr>
           </tbody>

@@ -126,6 +126,40 @@ async def obter_imovel(session: AsyncSession, *, tenant_id: uuid.UUID, imovel_uu
     return imovel
 
 
+async def obter_imovel_publico(session: AsyncSession, *, tenant_id: uuid.UUID, imovel_uuid: uuid.UUID) -> Imovel:
+    """Sem `user` — página pública (008-captacao-leads), sem restrição por corretor. Só imóveis
+    disponíveis e ativos aparecem (RN2); cada chamada bem-sucedida incrementa `views`."""
+    with tenant_scope(tenant_id):
+        result = await session.execute(
+            select(Imovel).where(
+                Imovel.tenant_id == tenant_id,
+                Imovel.uuid == imovel_uuid,
+                Imovel.ativo.is_(True),
+                Imovel.status == ImovelStatus.DISPONIVEL,
+            )
+        )
+        imovel = result.scalar_one_or_none()
+        if imovel is None:
+            raise ImovelNotFoundError(imovel_uuid)
+        imovel.views += 1
+        await session.commit()
+        await session.refresh(imovel)
+    return imovel
+
+
+async def incrementar_contatos(session: AsyncSession, *, tenant_id: uuid.UUID, imovel_uuid: uuid.UUID) -> None:
+    """Chamado ao criar um Lead vinculado a este imóvel (manual, público ou webhook — RN6)."""
+    with tenant_scope(tenant_id):
+        result = await session.execute(
+            select(Imovel).where(Imovel.tenant_id == tenant_id, Imovel.uuid == imovel_uuid)
+        )
+        imovel = result.scalar_one_or_none()
+        if imovel is None:
+            raise ImovelNotFoundError(imovel_uuid)
+        imovel.contatos += 1
+        await session.commit()
+
+
 async def listar_imoveis(
     session: AsyncSession,
     *,

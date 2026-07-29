@@ -8,6 +8,7 @@ import HomeView from "../views/HomeView.vue";
 import ImovelFormView from "../views/ImovelFormView.vue";
 import ImoveisListView from "../views/ImoveisListView.vue";
 import ImportacaoPrecosView from "../views/ImportacaoPrecosView.vue";
+import IntegracaoApiKeyView from "../views/IntegracaoApiKeyView.vue";
 import InviteTeamView from "../views/InviteTeamView.vue";
 import InvoicesView from "../views/InvoicesView.vue";
 import LeadDetailView from "../views/LeadDetailView.vue";
@@ -16,6 +17,7 @@ import LeadsListView from "../views/LeadsListView.vue";
 import LoginView from "../views/LoginView.vue";
 import MapaCalorView from "../views/MapaCalorView.vue";
 import PlanoView from "../views/PlanoView.vue";
+import PublicoImovelView from "../views/PublicoImovelView.vue";
 import SignupView from "../views/SignupView.vue";
 import SuperadminAuditoriaView from "../views/SuperadminAuditoriaView.vue";
 import SuperadminDashboardView from "../views/SuperadminDashboardView.vue";
@@ -49,6 +51,13 @@ const router = createRouter({
     { path: "/equipe/convidar", name: "convidar-corretor", component: InviteTeamView },
     { path: "/plano", name: "plano", component: PlanoView },
     { path: "/faturas", name: "faturas", component: InvoicesView },
+    { path: "/integracao/api-key", name: "integracao-api-key", component: IntegracaoApiKeyView },
+    {
+      path: "/publico/imoveis/:id",
+      name: "publico-imovel",
+      component: PublicoImovelView,
+      meta: { public: true },
+    },
     { path: "/admin/login", name: "admin-login", component: SuperadminLoginView, meta: { public: true, superadmin: true } },
     { path: "/admin", name: "admin-dashboard", component: SuperadminDashboardView, meta: { superadmin: true } },
     { path: "/admin/tenants", name: "admin-tenants", component: SuperadminTenantsView, meta: { superadmin: true } },

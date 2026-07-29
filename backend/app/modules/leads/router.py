@@ -1,19 +1,71 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, require_admin
 from app.core.redis_client import get_redis
 from app.database import get_session
 from app.modules.imoveis.service import ImovelNotFoundError
 from app.modules.leads import service
 from app.modules.leads.models import EstagioLead, OrigemLead
-from app.modules.leads.schemas import LeadCreate, LeadEstagioUpdate, LeadNotaCreate, LeadNotaOut, LeadOut
+from app.modules.leads.schemas import (
+    ApiKeyGerada,
+    ApiKeyStatus,
+    LeadCreate,
+    LeadEstagioUpdate,
+    LeadNotaCreate,
+    LeadNotaOut,
+    LeadOut,
+    LeadPublicoCreate,
+    LeadWebhookCreate,
+)
 from app.modules.tenancy.models import User
 
 router = APIRouter(tags=["leads"])
+
+_IMOVEL_NAO_ENCONTRADO = "Imóvel não encontrado"
+_API_KEY_INVALIDA = "X-API-Key ausente ou inválida"
+
+
+@router.post("/leads/integracao/api-key", response_model=ApiKeyGerada)
+async def gerar_api_key(
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_admin),
+):
+    chave, criada_em = await service.gerar_api_key(session, tenant_id=user.tenant_id)
+    return ApiKeyGerada(api_key=chave, created_at=criada_em)
+
+
+@router.get("/leads/integracao/api-key", response_model=ApiKeyStatus)
+async def status_api_key(
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_admin),
+):
+    chave = await service.obter_status_api_key(session, tenant_id=user.tenant_id)
+    if chave is None:
+        return ApiKeyStatus(existe=False)
+    return ApiKeyStatus(existe=True, created_at=chave.created_at, last_used_at=chave.last_used_at)
+
+
+@router.post("/leads/publico", response_model=LeadOut, status_code=status.HTTP_201_CREATED)
+async def criar_lead_publico(
+    payload: LeadPublicoCreate,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    redis: Redis = Depends(get_redis),
+):
+    tenant_id = getattr(request.state, "tenant_id", None)
+    if tenant_id is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_IMOVEL_NAO_ENCONTRADO)
+    try:
+        lead = await service.criar_lead_publico(
+            session, tenant_id=uuid.UUID(str(tenant_id)), payload=payload, redis=redis
+        )
+    except ImovelNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_IMOVEL_NAO_ENCONTRADO) from exc
+    return LeadOut.from_lead(lead)
 
 
 @router.post("/leads", response_model=LeadOut, status_code=status.HTTP_201_CREATED)
@@ -102,3 +154,21 @@ async def adicionar_nota(
     except service.LeadNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead não encontrado") from exc
     return LeadNotaOut.from_nota(nota)
+
+
+@router.post("/webhooks/leads", response_model=LeadOut, status_code=status.HTTP_201_CREATED, tags=["webhooks"])
+async def criar_lead_webhook(
+    payload: LeadWebhookCreate,
+    session: AsyncSession = Depends(get_session),
+    redis: Redis = Depends(get_redis),
+    x_api_key: str | None = Header(default=None),
+):
+    if not x_api_key:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=_API_KEY_INVALIDA)
+    try:
+        lead = await service.criar_lead_webhook(session, api_key=x_api_key, payload=payload, redis=redis)
+    except service.InvalidApiKeyError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=_API_KEY_INVALIDA) from exc
+    except ImovelNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_IMOVEL_NAO_ENCONTRADO) from exc
+    return LeadOut.from_lead(lead)

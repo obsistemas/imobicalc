@@ -1,3 +1,5 @@
+import hashlib
+import secrets
 import uuid
 from datetime import datetime, timezone
 
@@ -6,9 +8,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.events import emit
-from app.core.tenant_context import tenant_scope
-from app.modules.leads.models import ESTAGIOS_TERMINAIS, EstagioLead, Lead, LeadNota, OrigemLead
-from app.modules.leads.schemas import LeadCreate
+from app.core.tenant_context import system_scope, tenant_scope
+from app.modules.leads.models import ESTAGIOS_TERMINAIS, EstagioLead, Lead, LeadNota, OrigemLead, TenantApiKey
+from app.modules.leads.schemas import LeadCreate, LeadPublicoCreate, LeadWebhookCreate
 from app.modules.tenancy.models import Papel, User
 
 
@@ -20,9 +22,18 @@ class EstagioTerminalError(Exception):
     pass
 
 
+class InvalidApiKeyError(Exception):
+    pass
+
+
+def _hash_api_key(chave: str) -> str:
+    return hashlib.sha256(chave.encode("utf-8")).hexdigest()
+
+
 def _garante_visivel(lead: Lead, user: User) -> None:
     # 404 (não 403) para não revelar a um corretor a existência de lead de outro corretor.
-    if user.papel == Papel.CORRETOR and lead.corretor_id != user.uuid:
+    # corretor_id=None (008-captacao-leads, RN7) é visível para qualquer corretor do tenant.
+    if user.papel == Papel.CORRETOR and lead.corretor_id is not None and lead.corretor_id != user.uuid:
         raise LeadNotFoundError(lead.uuid)
 
 
@@ -48,6 +59,39 @@ async def criar_lead(
         await session.flush()
         await session.commit()
 
+    if payload.imovel_id is not None:
+        from app.modules.imoveis.service import incrementar_contatos
+
+        await incrementar_contatos(session, tenant_id=tenant_id, imovel_uuid=payload.imovel_id)
+
+    await emit("lead_criado", tenant_id=tenant_id, redis=redis, lead=lead)
+    return lead
+
+
+async def criar_lead_publico(
+    session: AsyncSession, *, tenant_id: uuid.UUID, payload: LeadPublicoCreate, redis: Redis
+) -> Lead:
+    """Formulário público de interesse (008-captacao-leads, US1) — sem corretor logado
+    (`corretor_id=None`), origem sempre `site` (RF006: o visitante não escolhe a origem)."""
+    from app.modules.imoveis.service import incrementar_contatos, obter_imovel_publico
+
+    await obter_imovel_publico(session, tenant_id=tenant_id, imovel_uuid=payload.imovel_id)
+
+    with tenant_scope(tenant_id):
+        lead = Lead(
+            tenant_id=tenant_id,
+            corretor_id=None,
+            imovel_id=payload.imovel_id,
+            nome=payload.nome,
+            email=payload.email,
+            telefone=payload.telefone,
+            origem=OrigemLead.SITE,
+        )
+        session.add(lead)
+        await session.flush()
+        await session.commit()
+
+    await incrementar_contatos(session, tenant_id=tenant_id, imovel_uuid=payload.imovel_id)
     await emit("lead_criado", tenant_id=tenant_id, redis=redis, lead=lead)
     return lead
 
@@ -73,7 +117,8 @@ async def listar_leads(
     with tenant_scope(tenant_id):
         filtros = [Lead.tenant_id == tenant_id]
         if user.papel == Papel.CORRETOR:
-            filtros.append(Lead.corretor_id == user.uuid)
+            # corretor_id=None (008-captacao-leads, RN7) fica visível a qualquer corretor.
+            filtros.append((Lead.corretor_id == user.uuid) | Lead.corretor_id.is_(None))
         if estagio is not None:
             filtros.append(Lead.estagio == estagio)
         if origem is not None:
@@ -131,3 +176,68 @@ async def listar_notas(
             .order_by(LeadNota.created_at.desc(), LeadNota.id.desc())
         )
         return list(result.scalars().all())
+
+
+async def gerar_api_key(session: AsyncSession, *, tenant_id: uuid.UUID) -> tuple[str, datetime]:
+    """Gera (ou rotaciona) a API key do tenant (008-captacao-leads, RN4/RN5). A chave em texto
+    plano só existe aqui — a partir do retorno, só o hash fica salvo."""
+    chave = secrets.token_urlsafe(32)
+    with tenant_scope(tenant_id):
+        result = await session.execute(select(TenantApiKey).where(TenantApiKey.tenant_id == tenant_id))
+        existente = result.scalar_one_or_none()
+        if existente is not None:
+            existente.key_hash = _hash_api_key(chave)
+            existente.last_used_at = None
+            await session.commit()
+            await session.refresh(existente)
+            criada_em = existente.created_at
+        else:
+            nova = TenantApiKey(tenant_id=tenant_id, key_hash=_hash_api_key(chave))
+            session.add(nova)
+            await session.commit()
+            await session.refresh(nova)
+            criada_em = nova.created_at
+    return chave, criada_em
+
+
+async def obter_status_api_key(session: AsyncSession, *, tenant_id: uuid.UUID) -> TenantApiKey | None:
+    with tenant_scope(tenant_id):
+        result = await session.execute(select(TenantApiKey).where(TenantApiKey.tenant_id == tenant_id))
+        return result.scalar_one_or_none()
+
+
+async def criar_lead_webhook(
+    session: AsyncSession, *, api_key: str, payload: LeadWebhookCreate, redis: Redis
+) -> Lead:
+    """Webhook público de leads (008-captacao-leads, US2) — tenant resolvido pelo hash da API
+    key (`system_scope()`, mesmo racional já documentado para login por e-mail: não se sabe o
+    tenant até resolver o identificador vindo do chamador)."""
+    with system_scope():
+        result = await session.execute(select(TenantApiKey).where(TenantApiKey.key_hash == _hash_api_key(api_key)))
+        chave = result.scalar_one_or_none()
+    if chave is None:
+        raise InvalidApiKeyError()
+    tenant_id = chave.tenant_id
+
+    if payload.imovel_id is not None:
+        from app.modules.imoveis.service import incrementar_contatos
+
+        await incrementar_contatos(session, tenant_id=tenant_id, imovel_uuid=payload.imovel_id)
+
+    with tenant_scope(tenant_id):
+        lead = Lead(
+            tenant_id=tenant_id,
+            corretor_id=None,
+            imovel_id=payload.imovel_id,
+            nome=payload.nome,
+            email=payload.email,
+            telefone=payload.telefone,
+            origem=payload.origem or OrigemLead.OUTRO,
+        )
+        session.add(lead)
+        chave.last_used_at = datetime.now(timezone.utc)
+        await session.flush()
+        await session.commit()
+
+    await emit("lead_criado", tenant_id=tenant_id, redis=redis, lead=lead)
+    return lead

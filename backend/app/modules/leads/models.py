@@ -2,7 +2,7 @@ import enum
 import uuid as uuid_pkg
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, String, Text, func
+from sqlalchemy import Boolean, DateTime, Enum, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.tenant_context import TenantScopedMixin
@@ -36,7 +36,9 @@ class Lead(Base, TenantScopedMixin):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     uuid: Mapped[uuid_pkg.UUID] = mapped_column(unique=True, default=uuid_pkg.uuid4, index=True)
-    corretor_id: Mapped[uuid_pkg.UUID] = mapped_column(index=True)
+    # None = lead sem dono (008-captacao-leads): criado por canal automático (página pública,
+    # webhook) sem nenhum corretor logado — visível para todos os corretores do tenant (RN7).
+    corretor_id: Mapped[uuid_pkg.UUID | None] = mapped_column(index=True, nullable=True)
     imovel_id: Mapped[uuid_pkg.UUID | None] = mapped_column(index=True, nullable=True)
     nome: Mapped[str] = mapped_column(String(200))
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -64,3 +66,18 @@ class LeadNota(Base, TenantScopedMixin):
     texto: Mapped[str] = mapped_column(Text)
     automatica: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class TenantApiKey(Base, TenantScopedMixin):
+    """No máximo uma por tenant (008-captacao-leads) — usada pelo webhook público de leads.
+    Só o hash (SHA-256, lookup direto) fica salvo; a chave em texto plano é devolvida uma
+    única vez, no momento em que é gerada."""
+
+    __tablename__ = "tenant_api_keys"
+    __table_args__ = (UniqueConstraint("tenant_id", name="uq_tenant_api_keys_tenant_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    uuid: Mapped[uuid_pkg.UUID] = mapped_column(unique=True, default=uuid_pkg.uuid4, index=True)
+    key_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

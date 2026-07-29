@@ -68,6 +68,10 @@ class Imovel(Base, TenantScopedMixin):
     escritura_ok: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     fotos: Mapped[str] = mapped_column(Text, default="[]")  # JSON: lista de URLs
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)  # soft delete
+    # 008-captacao-leads: incrementados por GET /imoveis/publico/{id} e por criação de Lead
+    # vinculado (manual ou automática) — ver RN6 da spec.
+    views: Mapped[int] = mapped_column(Integer, default=0)
+    contatos: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

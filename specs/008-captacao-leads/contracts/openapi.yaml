@@ -1,0 +1,155 @@
+openapi: 3.0.3
+info:
+  title: Proptech Avaliador API — Feature 008 (Captação Automática de Leads)
+  version: 0.8.0
+tags:
+  - name: publico
+  - name: leads
+  - name: webhooks
+
+paths:
+  /imoveis/publico/{imovel_id}:
+    get:
+      tags: [publico]
+      summary: Dados públicos de um imóvel disponível (sem autenticação, tenant resolvido pelo subdomínio)
+      parameters:
+        - { name: imovel_id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Incrementa Imovel.views a cada chamada bem-sucedida
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImovelPublico' }
+        '404': { description: Imóvel não encontrado, indisponível, ou tenant não resolvido pelo Host }
+
+  /leads/publico:
+    post:
+      tags: [publico]
+      summary: Formulário público de interesse (sem autenticação, tenant resolvido pelo subdomínio)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LeadPublicoCreate' }
+      responses:
+        '201':
+          description: Lead criado (corretor_id nulo), Imovel.contatos incrementado, evento lead_criado emitido
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LeadOut' }
+        '400': { description: Nem telefone nem email informado }
+        '404': { description: Imóvel não encontrado/indisponível, ou tenant não resolvido pelo Host }
+
+  /leads/integracao/api-key:
+    post:
+      tags: [leads]
+      summary: Gera (ou rotaciona) a API key de integração do tenant — admin only
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Chave em texto plano — só aparece aqui, nunca mais é reexibida
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiKeyGerada' }
+        '403': { description: Apenas admin pode gerenciar a API key }
+    get:
+      tags: [leads]
+      summary: Status da API key do tenant (sem revelar a chave) — admin only
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiKeyStatus' }
+        '403': { description: Apenas admin pode gerenciar a API key }
+
+  /webhooks/leads:
+    post:
+      tags: [webhooks]
+      summary: Recebe lead de canal externo (landing page, campanha) autenticado por API key
+      security: [{ apiKeyAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LeadWebhookCreate' }
+      responses:
+        '201':
+          description: Lead criado (corretor_id nulo), evento lead_criado emitido no tenant da chave
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LeadOut' }
+        '400': { description: Nem telefone nem email informado, ou imovel_id de outro tenant }
+        '401': { description: X-API-Key ausente ou inválida }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+  schemas:
+    ImovelPublico:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        titulo: { type: string }
+        descricao: { type: string, nullable: true }
+        bairro: { type: string }
+        cidade: { type: string }
+        estado: { type: string }
+        tipo: { type: string }
+        area_total: { type: number }
+        quartos: { type: integer, nullable: true }
+        banheiros: { type: integer, nullable: true }
+        vagas: { type: integer, nullable: true }
+        valor_anunciado: { type: number, nullable: true }
+        fotos: { type: array, items: { type: string } }
+
+    LeadPublicoCreate:
+      type: object
+      required: [nome, imovel_id]
+      properties:
+        nome: { type: string }
+        email: { type: string, format: email, nullable: true }
+        telefone: { type: string, nullable: true }
+        imovel_id: { type: string, format: uuid }
+
+    LeadWebhookCreate:
+      type: object
+      required: [nome]
+      properties:
+        nome: { type: string }
+        email: { type: string, format: email, nullable: true }
+        telefone: { type: string, nullable: true }
+        origem: { type: string, enum: [zap, vivareal, portal, site, indicacao, redes_sociais, outro], nullable: true }
+        imovel_id: { type: string, format: uuid, nullable: true }
+
+    LeadOut:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        corretor_id: { type: string, format: uuid, nullable: true }
+        imovel_id: { type: string, format: uuid, nullable: true }
+        nome: { type: string }
+        origem: { type: string }
+        estagio: { type: string }
+        created_at: { type: string, format: date-time }
+
+    ApiKeyGerada:
+      type: object
+      properties:
+        api_key: { type: string, description: "texto plano — copie agora, não será mostrado de novo" }
+        created_at: { type: string, format: date-time }
+
+    ApiKeyStatus:
+      type: object
+      properties:
+        existe: { type: boolean }
+        created_at: { type: string, format: date-time, nullable: true }
+        last_used_at: { type: string, format: date-time, nullable: true }
