@@ -32,6 +32,11 @@ class Conservacao(str, enum.Enum):
     RUIM = "ruim"
 
 
+class Finalidade(str, enum.Enum):
+    VENDA = "venda"
+    ALUGUEL = "aluguel"
+
+
 class Imovel(Base, TenantScopedMixin):
     __tablename__ = "imoveis"
 
@@ -63,6 +68,9 @@ class Imovel(Base, TenantScopedMixin):
     status: Mapped[ImovelStatus] = mapped_column(
         Enum(ImovelStatus, native_enum=False), default=ImovelStatus.DISPONIVEL
     )
+    # 009-integracao-portais: obrigatório para o imóvel entrar no feed VRSync (RN2) — None é um
+    # estado válido (imóvel cadastrado antes desta feature, ou ainda não classificado).
+    finalidade: Mapped[Finalidade | None] = mapped_column(Enum(Finalidade, native_enum=False), nullable=True)
     matricula: Mapped[str | None] = mapped_column(String(50), nullable=True)
     iptu_quitado: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     escritura_ok: Mapped[bool | None] = mapped_column(Boolean, nullable=True)

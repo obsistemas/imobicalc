@@ -45,6 +45,10 @@ function formatarData(valor) {
   return valor ? new Date(valor).toLocaleString("pt-BR") : "—";
 }
 
+// A URL do feed usa o mesmo host que o navegador já está acessando — é sempre o subdomínio do
+// tenant logado, o mesmo mecanismo de resolução por Host header da página pública do imóvel.
+const feedUrl = `${window.location.origin}/api/v1/imoveis/publico/feed.xml`;
+
 onMounted(carregarStatus);
 </script>
 
@@ -90,5 +94,22 @@ onMounted(carregarStatus);
         </code>
       </div>
     </template>
+
+    <div class="mt-8 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+      <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Feed de anúncios (ZAP/Viva Real)</h2>
+      <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        Cadastre esta URL no Canal Pro (Grupo OLX), na opção "Desenvolvedor Próprio", para
+        publicar e atualizar seus imóveis disponíveis automaticamente no ZAP e Viva Real.
+      </p>
+      <code class="mt-3 block break-all rounded bg-slate-100 p-2 text-sm dark:bg-slate-800 dark:text-white">
+        {{ feedUrl }}
+      </code>
+      <p class="mt-3 text-sm text-amber-700 dark:text-amber-400">
+        Antes de cadastrar de verdade no Canal Pro, valide o XML no
+        <a href="https://developers.grupozap.com/feeds/xml_validator/" target="_blank" rel="noopener" class="underline">
+          Validador XML oficial do Grupo OLX
+        </a>.
+      </p>
+    </div>
   </div>
 </template>

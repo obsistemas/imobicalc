@@ -44,6 +44,13 @@ Edite `.env.prod` e preencha (nunca reutilize os valores de exemplo):
   (`/admin/login`, 007-superadmin), fora do modelo de tenant. Provisionado automaticamente no
   primeiro start (idempotente — reiniciar depois não reseta a senha). Deixe em branco para não
   criar a conta (painel fica inacessível até preencher e reiniciar).
+- `CANAL_PRO_FEED_EMAIL`/`CANAL_PRO_WEBHOOK_SECRET` (009-integracao-portais) — integração com
+  ZAP/Viva Real via Canal Pro (Grupo OLX). O feed de anúncios (`/imoveis/publico/feed.xml`)
+  funciona mesmo com `CANAL_PRO_FEED_EMAIL` em branco (só fica sem e-mail de contato no XML).
+  `CANAL_PRO_WEBHOOK_SECRET` é a chave única do sistema (não por tenant) obtida no processo de
+  homologação do CRM junto ao Grupo OLX — sem ela, `POST /webhooks/leads/portais` rejeita tudo
+  com 401. Antes de cadastrar a URL do feed de verdade no Canal Pro, valide o XML no
+  [Validador oficial do Grupo OLX](https://developers.grupozap.com/feeds/xml_validator/).
 - Mercado Pago/Sentry — opcional, deixe em branco se ainda não for usar.
 
 ## 4. Subir

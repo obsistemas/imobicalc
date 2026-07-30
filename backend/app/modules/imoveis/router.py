@@ -2,9 +2,11 @@ import uuid
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import Response
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.core.deps import get_current_user
 from app.core.redis_client import get_redis
 from app.database import get_session
@@ -12,6 +14,7 @@ from app.modules.imoveis import service
 from app.modules.imoveis.models import ImovelStatus, ImovelTipo
 from app.modules.imoveis.schemas import ImovelCreate, ImovelOut, ImovelPage, ImovelPublico, ImovelUpdate
 from app.modules.imoveis.viacep_driver import CepLookupDriver, get_cep_driver
+from app.modules.imoveis.vrsync_feed import gerar_feed_vrsync
 from app.modules.licenciamento.service import ImovelLimitExceededError
 from app.modules.tenancy.models import User
 
@@ -19,6 +22,26 @@ router = APIRouter(tags=["imoveis"])
 
 _LIMITE_PLANO_DETAIL = "Limite de imóveis do plano atingido — faça upgrade para cadastrar mais imóveis"
 _IMOVEL_NAO_ENCONTRADO = "Imóvel não encontrado"
+
+
+@router.get("/imoveis/publico/feed.xml")
+async def feed_vrsync(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    tenant_id = getattr(request.state, "tenant_id", None)
+    imoveis = (
+        await service.listar_imoveis_para_feed(session, tenant_id=uuid.UUID(str(tenant_id)))
+        if tenant_id is not None
+        else []
+    )
+    xml = gerar_feed_vrsync(
+        imoveis,
+        provider="Proptech Avaliador",
+        email=settings.canal_pro_feed_email,
+        contact_name=settings.platform_domain,
+    )
+    return Response(content=xml, media_type="application/xml")
 
 
 @router.get("/imoveis/publico/{imovel_id}", response_model=ImovelPublico)

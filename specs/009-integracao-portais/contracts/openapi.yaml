@@ -1,0 +1,62 @@
+openapi: 3.0.3
+info:
+  title: Proptech Avaliador API — Feature 009 (Integração com Portais)
+  version: 0.9.0
+tags:
+  - name: publico
+  - name: webhooks
+
+paths:
+  /imoveis/publico/feed.xml:
+    get:
+      tags: [publico]
+      summary: Feed XML VRSync dos imóveis disponíveis do tenant (sem autenticação, resolvido pelo subdomínio)
+      responses:
+        '200':
+          description: XML válido no formato VRSync — vazio (sem Listing) se o tenant não resolver ou não houver imóveis publicáveis
+          content:
+            application/xml:
+              schema: { type: string }
+
+  /webhooks/leads/portais:
+    post:
+      tags: [webhooks]
+      summary: Recebe lead de portal (ZAP/Viva Real via Grupo OLX) autenticado por HTTP Basic Auth com chave única do sistema
+      security: [{ basicAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LeadPortalPayload' }
+      responses:
+        '200':
+          description: Recebido — inclui o caso de clientListingId desconhecido (ignorado sem erro, RN5)
+        '401': { description: Basic Auth ausente ou secret incorreta }
+
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+      description: SECRET_KEY única do sistema (settings.canal_pro_webhook_secret) — não é uma chave por tenant
+
+  schemas:
+    LeadPortalPayload:
+      type: object
+      description: Formato real documentado em developers.grupozap.com/webhooks/integration_leads.html
+      properties:
+        leadOrigin: { type: string, example: "Grupo OLX" }
+        timestamp: { type: string, format: date-time }
+        originLeadId: { type: string }
+        originListingId: { type: string }
+        clientListingId: { type: string, description: "Imovel.uuid atribuído no feed (US1/AC3)" }
+        name: { type: string }
+        email: { type: string, nullable: true }
+        ddd: { type: string, nullable: true }
+        phone: { type: string, nullable: true }
+        message: { type: string, nullable: true }
+        temperature: { type: string, nullable: true }
+        transactionType: { type: string, nullable: true }
+        extraData:
+          type: object
+          additionalProperties: true

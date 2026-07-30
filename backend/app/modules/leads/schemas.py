@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.modules.leads.models import EstagioLead, Lead, LeadNota, OrigemLead
 
@@ -38,6 +38,23 @@ class LeadWebhookCreate(_ExigeContato):
     nome: str
     origem: OrigemLead | None = None
     imovel_id: uuid.UUID | None = None
+
+
+class LeadPortalPayload(BaseModel):
+    """Formato real do webhook de leads do Grupo OLX (009-integracao-portais) — não é o mesmo
+    payload do webhook genérico da 008 (LeadWebhookCreate). Campos desconhecidos são ignorados
+    de propósito (a doc deles avisa que novos campos podem aparecer sem aviso prévio)."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    client_listing_id: str | None = Field(default=None, alias="clientListingId")
+    origin_listing_id: str | None = Field(default=None, alias="originListingId")
+    origin_lead_id: str | None = Field(default=None, alias="originLeadId")
+    name: str = ""
+    email: str | None = None
+    ddd: str | None = None
+    phone: str | None = None
+    message: str | None = None
 
 
 class ApiKeyGerada(BaseModel):

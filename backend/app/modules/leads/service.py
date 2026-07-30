@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.events import emit
 from app.core.tenant_context import system_scope, tenant_scope
 from app.modules.leads.models import ESTAGIOS_TERMINAIS, EstagioLead, Lead, LeadNota, OrigemLead, TenantApiKey
-from app.modules.leads.schemas import LeadCreate, LeadPublicoCreate, LeadWebhookCreate
+from app.modules.leads.schemas import LeadCreate, LeadPortalPayload, LeadPublicoCreate, LeadWebhookCreate
 from app.modules.tenancy.models import Papel, User
 
 
@@ -239,5 +239,46 @@ async def criar_lead_webhook(
         await session.flush()
         await session.commit()
 
+    await emit("lead_criado", tenant_id=tenant_id, redis=redis, lead=lead)
+    return lead
+
+
+async def criar_lead_portal(session: AsyncSession, *, payload: LeadPortalPayload, redis: Redis) -> Lead | None:
+    """Webhook de leads dos portais (009-integracao-portais, US2) — tenant resolvido cruzando
+    `clientListingId` com `Imovel.uuid` (o mesmo valor que eu atribuo como ListingID no feed
+    VRSync). Retorna None (RN5) quando não há como rotear o lead — sem `clientListingId` (leads
+    MCMV, fora de escopo) ou apontando para um imóvel que não existe mais; nesses casos o
+    chamador (router) ainda responde 200, para não disparar retry automático inútil."""
+    if not payload.client_listing_id:
+        return None
+    try:
+        imovel_uuid = uuid.UUID(payload.client_listing_id)
+    except ValueError:
+        return None
+
+    from app.modules.imoveis.service import incrementar_contatos, obter_imovel_por_uuid_cross_tenant
+
+    imovel = await obter_imovel_por_uuid_cross_tenant(session, imovel_uuid=imovel_uuid)
+    if imovel is None:
+        return None
+    tenant_id = imovel.tenant_id
+
+    telefone = f"{payload.ddd}{payload.phone}" if payload.ddd and payload.phone else payload.phone
+
+    with tenant_scope(tenant_id):
+        lead = Lead(
+            tenant_id=tenant_id,
+            corretor_id=None,
+            imovel_id=imovel.uuid,
+            nome=payload.name or "Lead do portal",
+            email=payload.email,
+            telefone=telefone,
+            origem=OrigemLead.PORTAL,
+        )
+        session.add(lead)
+        await session.flush()
+        await session.commit()
+
+    await incrementar_contatos(session, tenant_id=tenant_id, imovel_uuid=imovel.uuid)
     await emit("lead_criado", tenant_id=tenant_id, redis=redis, lead=lead)
     return lead

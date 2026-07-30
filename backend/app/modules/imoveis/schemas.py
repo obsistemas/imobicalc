@@ -6,7 +6,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.modules.imoveis.models import Conservacao, Imovel, ImovelStatus, ImovelTipo
+from app.modules.imoveis.models import Conservacao, Finalidade, Imovel, ImovelStatus, ImovelTipo
 
 _CEP_RE = re.compile(r"^\d{5}-?\d{3}$")
 
@@ -32,6 +32,7 @@ class ImovelCreate(BaseModel):
     matricula: str | None = None
     iptu_quitado: bool | None = None
     escritura_ok: bool | None = None
+    finalidade: Finalidade | None = None
 
     @field_validator("cep")
     @classmethod
@@ -74,6 +75,7 @@ class ImovelOut(BaseModel):
     conservacao: Conservacao | None
     valor_anunciado: Decimal | None
     status: ImovelStatus
+    finalidade: Finalidade | None
     matricula: str | None
     iptu_quitado: bool | None
     escritura_ok: bool | None
@@ -108,6 +110,7 @@ class ImovelOut(BaseModel):
             conservacao=imovel.conservacao,
             valor_anunciado=imovel.valor_anunciado,
             status=imovel.status,
+            finalidade=imovel.finalidade,
             matricula=imovel.matricula,
             iptu_quitado=imovel.iptu_quitado,
             escritura_ok=imovel.escritura_ok,

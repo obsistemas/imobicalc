@@ -39,6 +39,7 @@ def _aplicar_campos(imovel: Imovel, payload: ImovelCreate) -> None:
     imovel.matricula = payload.matricula
     imovel.iptu_quitado = payload.iptu_quitado
     imovel.escritura_ok = payload.escritura_ok
+    imovel.finalidade = payload.finalidade
 
 
 def _garante_visivel(imovel: Imovel, user: User) -> None:
@@ -145,6 +146,33 @@ async def obter_imovel_publico(session: AsyncSession, *, tenant_id: uuid.UUID, i
         await session.commit()
         await session.refresh(imovel)
     return imovel
+
+
+async def listar_imoveis_para_feed(session: AsyncSession, *, tenant_id: uuid.UUID) -> list[Imovel]:
+    """Imóveis publicáveis no feed VRSync (009-integracao-portais, RN2): disponível + ativo +
+    finalidade definida — os três critérios, não dois."""
+    with tenant_scope(tenant_id):
+        result = await session.execute(
+            select(Imovel).where(
+                Imovel.tenant_id == tenant_id,
+                Imovel.ativo.is_(True),
+                Imovel.status == ImovelStatus.DISPONIVEL,
+                Imovel.finalidade.is_not(None),
+            )
+        )
+        return list(result.scalars().all())
+
+
+async def obter_imovel_por_uuid_cross_tenant(session: AsyncSession, *, imovel_uuid: uuid.UUID) -> Imovel | None:
+    """Resolve um Imovel só pelo uuid, sem saber o tenant de antemão (009-integracao-portais,
+    webhook de leads dos portais: o `clientListingId` é o `Imovel.uuid`, e o tenant só é
+    conhecido depois de encontrar o imóvel). `system_scope()` — mesmo racional já documentado
+    para consultas cross-tenant legítimas (login por e-mail, API key da 008)."""
+    from app.core.tenant_context import system_scope
+
+    with system_scope():
+        result = await session.execute(select(Imovel).where(Imovel.uuid == imovel_uuid))
+        return result.scalar_one_or_none()
 
 
 async def incrementar_contatos(session: AsyncSession, *, tenant_id: uuid.UUID, imovel_uuid: uuid.UUID) -> None:

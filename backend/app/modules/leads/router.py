@@ -1,9 +1,12 @@
+import secrets
 import uuid
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.core.deps import get_current_user, require_admin
 from app.core.redis_client import get_redis
 from app.database import get_session
@@ -18,6 +21,7 @@ from app.modules.leads.schemas import (
     LeadNotaCreate,
     LeadNotaOut,
     LeadOut,
+    LeadPortalPayload,
     LeadPublicoCreate,
     LeadWebhookCreate,
 )
@@ -27,6 +31,20 @@ router = APIRouter(tags=["leads"])
 
 _IMOVEL_NAO_ENCONTRADO = "Imóvel não encontrado"
 _API_KEY_INVALIDA = "X-API-Key ausente ou inválida"
+
+_basic_auth = HTTPBasic(auto_error=False)
+
+
+def _verifica_canal_pro_secret(credentials: HTTPBasicCredentials | None = Depends(_basic_auth)) -> None:
+    # RN4 (009-integracao-portais): chave única do sistema, não por tenant — reflete como o
+    # Grupo OLX modela a integração ("SECRET_KEY é por CRM, não por cliente").
+    secret = settings.canal_pro_webhook_secret
+    if not secret or credentials is None or not secrets.compare_digest(credentials.password, secret):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Basic Auth ausente ou inválido",
+            headers={"WWW-Authenticate": "Basic"},
+        )
 
 
 @router.post("/leads/integracao/api-key", response_model=ApiKeyGerada)
@@ -172,3 +190,20 @@ async def criar_lead_webhook(
     except ImovelNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_IMOVEL_NAO_ENCONTRADO) from exc
     return LeadOut.from_lead(lead)
+
+
+@router.post(
+    "/webhooks/leads/portais",
+    status_code=status.HTTP_200_OK,
+    tags=["webhooks"],
+    dependencies=[Depends(_verifica_canal_pro_secret)],
+)
+async def webhook_leads_portais(
+    payload: LeadPortalPayload,
+    session: AsyncSession = Depends(get_session),
+    redis: Redis = Depends(get_redis),
+):
+    # RN5: clientListingId desconhecido (ou lead sem imóvel vinculável, ex. MCMV) responde 200
+    # sem criar nada — reenviar não resolveria um imóvel que não existe (evita retry infinito).
+    await service.criar_lead_portal(session, payload=payload, redis=redis)
+    return {"status": "recebido"}

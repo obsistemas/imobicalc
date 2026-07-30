@@ -38,5 +38,12 @@ class Settings(BaseSettings):
 
     sentry_dsn: str | None = None
 
+    # 009-integracao-portais: e-mail de contato exibido no Header do feed VRSync.
+    canal_pro_feed_email: str = ""
+    # SECRET_KEY única do sistema (não por tenant — a integração é homologada "por CRM" junto
+    # ao Grupo OLX). Vazio até a homologação real acontecer; enquanto vazio, o webhook rejeita
+    # tudo (nenhuma senha vazia é aceita).
+    canal_pro_webhook_secret: str = ""
+
 
 settings = Settings()

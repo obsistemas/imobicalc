@@ -53,6 +53,8 @@ services:
       SENTRY_DSN: ${SENTRY_DSN:-}
       SUPERADMIN_EMAIL: ${SUPERADMIN_EMAIL:-}
       SUPERADMIN_PASSWORD: ${SUPERADMIN_PASSWORD:-}
+      CANAL_PRO_FEED_EMAIL: ${CANAL_PRO_FEED_EMAIL:-}
+      CANAL_PRO_WEBHOOK_SECRET: ${CANAL_PRO_WEBHOOK_SECRET:-}
     depends_on:
       postgres:
         condition: service_healthy
