@@ -4,9 +4,10 @@
 #   cp .env.prod.example .env.prod   # preencher com valores reais
 #   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
 #
-# Postgres e Redis NUNCA expõem porta ao host — só acessíveis pela rede interna do compose
-# (backend fala com eles por nome de serviço). Só backend/frontend publicam porta, e ambas são
-# configuráveis via .env.prod para não colidir com outro sistema já rodando no servidor.
+# Postgres e Redis não são acessíveis pela internet — só pela rede interna do compose (backend
+# fala com eles por nome de serviço) e, no caso do Postgres, por 127.0.0.1 no próprio servidor
+# (útil para inspecionar com um cliente de banco local, ex.: psql/DBeaver via túnel SSH) — nunca
+# em 0.0.0.0. Backend/frontend publicam porta normalmente, configurável via .env.prod.
 
 services:
   postgres:
@@ -18,6 +19,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-proptech}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:${POSTGRES_INTERNAL_PORT:-55432}:${POSTGRES_INTERNAL_PORT:-55432}"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-proptech} -p ${POSTGRES_INTERNAL_PORT:-55432}"]
       interval: 10s
