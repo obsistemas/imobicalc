@@ -74,6 +74,25 @@ recebidos nos meus anúncios do ZAP/Viva Real caiam automaticamente no meu funil
 - AC5: lead criado incrementa `Imovel.contatos` e emite `lead_criado` no canal WS do tenant,
   igual aos outros caminhos de captação automática.
 
+**US3 (P0) — Upload de fotos do imóvel.** Como corretor, quero subir fotos de um imóvel, para
+que ele possa entrar no feed de portais (RN2 exige ao menos 1 foto) e ter uma página pública
+apresentável.
+- AC1: `POST /imoveis/{id}/fotos` (multipart, autenticado) aceita JPEG/PNG/WEBP até 7MB (mesmo
+  limite documentado pelo schema VRSync para `Media`); grava em disco (volume Docker, sem
+  storage externo — RNF009) e acrescenta a URL à lista `fotos` do imóvel.
+- AC2: `DELETE /imoveis/{id}/fotos/{indice}` remove uma foto pelo índice na lista.
+- AC3: reaproveita a mesma checagem de visibilidade do resto do módulo (corretor só mexe nos
+  próprios imóveis; admin mexe em qualquer um do tenant) — imóvel de outro corretor/tenant
+  retorna 404, nunca 403 (mesmo racional de não revelar existência).
+- AC4: toda URL de foto retornada pela API (`ImovelOut`, `ImovelPublico`, feed VRSync) é
+  absoluta — construída a partir do host da própria requisição, nunca hardcoded, já que corretor
+  logado, visitante da página pública e o crawler do Grupo OLX acessam por hosts diferentes.
+
+*Descoberta durante a implementação da US1:* o sistema não tinha (e nunca teve) nenhum
+mecanismo de upload de imagem — `ImovelCreate`/`ImovelUpdate` nunca aceitaram um campo de foto,
+apesar de `Imovel.fotos` existir no schema desde a v1.0.0. Sem esta US, a exigência de "ao menos
+1 foto" do RN2 tornaria o feed permanentemente vazio.
+
 ## Fora de escopo
 
 **Leads do tipo MCMV** (simulação de financiamento "Minha Casa Minha Vida") — o payload real
@@ -96,8 +115,12 @@ rodar antes de ir para produção; não é algo que eu consiga verificar por aqu
 - **RN1 (Artigo I mantido):** tanto o feed quanto o webhook resolvem o tenant *antes* de
   qualquer leitura/escrita (Host header para o feed, `clientListingId → Imovel.uuid` para o
   webhook) — nunca aceitam um identificador de tenant explícito vindo do chamador.
-- **RN2 (feed só de imóveis publicáveis):** só `status=disponivel`, `ativo=True` **e**
-  `finalidade` preenchida entram no feed — os três critérios, não dois.
+- **RN2 (feed só de imóveis publicáveis):** só `status=disponivel`, `ativo=True`,
+  `finalidade` preenchida **e** ao menos 1 foto cadastrada entram no feed — os quatro critérios,
+  não três. A exigência de foto existe porque o schema VRSync exige mínimo 1 imagem por
+  `Listing`; publicar um imóvel sem foto resultaria nesse anúncio específico sendo rejeitado do
+  lado do Grupo OLX — melhor nunca publicar algo que já sabemos inválido do que descobrir isso
+  só no relatório de importação deles.
 - **RN3 (uma finalidade por imóvel):** `Imovel.finalidade` é um enum simples (`venda`/`aluguel`),
   não uma lista — decisão consciente de simplicidade sobre o "Sale/Rent" combinado do VRSync.
 - **RN4 (SECRET_KEY única, não por tenant):** ao contrário do webhook de API key da
@@ -106,3 +129,8 @@ rodar antes de ir para produção; não é algo que eu consiga verificar por aqu
   final).
 - **RN5 (falha de lookup não é erro HTTP):** `clientListingId` desconhecido retorna 200 —
   evita retry automático infinito por algo que reprocessar não resolve.
+- **RN6 (fotos armazenadas como caminho relativo):** `Imovel.fotos` guarda caminhos relativos
+  (`/uploads/imoveis/...`), nunca URL absoluta — a URL completa é montada em cada leitura, a
+  partir do host de quem está pedindo naquele momento (corretor logado, visitante público, feed).
+  Gravar a URL absoluta no momento do upload prenderia a foto ao host usado naquela hora
+  específica, que pode não ser o mesmo host de quem for visualizar depois.

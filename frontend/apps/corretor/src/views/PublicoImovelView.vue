@@ -68,6 +68,16 @@ onMounted(carregar);
       <p v-else-if="loading" class="text-center text-slate-500 dark:text-slate-400">Carregando…</p>
 
       <template v-else-if="imovel">
+        <div v-if="imovel.fotos?.length" class="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <img
+            v-for="url in imovel.fotos"
+            :key="url"
+            :src="url"
+            class="h-32 w-full rounded-lg object-cover shadow-sm"
+            alt="Foto do imóvel"
+          />
+        </div>
+
         <div class="rounded-xl bg-white p-6 shadow-sm dark:bg-slate-800">
           <p class="text-xs font-medium uppercase tracking-wide text-primary">
             {{ TIPO_LABEL[imovel.tipo] ?? imovel.tipo }}

@@ -1,7 +1,19 @@
 # Modelo de Dados — Feature 009: Integração com Portais
 
 Uma alteração de schema (`imoveis.finalidade`), nenhuma tabela nova — o feed é gerado sob
-demanda a partir de `Imovel` já existente, e o webhook só cria `Lead` (004-leads).
+demanda a partir de `Imovel` já existente, e o webhook só cria `Lead` (004-leads). Fotos são
+arquivos em disco (volume Docker), não uma tabela — `Imovel.fotos` (já existente) passa a ser
+efetivamente populado pela primeira vez (US3).
+
+## Armazenamento de fotos (US3)
+
+Sem tabela nova. Arquivo gravado em
+`{settings.uploads_dir}/imoveis/{tenant_id}/{imovel_uuid}/{uuid4().hex}.{ext}` (volume Docker
+`uploads_data` em produção — RNF009, sem storage externo). `Imovel.fotos` (JSON, já existente)
+guarda o **caminho relativo** servido (`/uploads/imoveis/{tenant_id}/{imovel_uuid}/{arquivo}`),
+montado como estático pelo FastAPI (`StaticFiles`) fora do prefixo `/api/v1` e reverse-proxied
+pelo nginx (`location /uploads/`) — RN6: a URL absoluta é montada em cada leitura (`ImovelOut`,
+`ImovelPublico`, feed), nunca gravada no banco.
 
 ## Alteração em `imoveis`: `finalidade`
 
@@ -34,7 +46,7 @@ Schema real obtido em `developers.grupozap.com/feeds/vrsync/*` (namespace
 | `TransactionType` | `finalidade` | `venda`→`For Sale`, `aluguel`→`For Rent` (RN3: nunca `Sale/Rent`) |
 | `Location.Country/State/City/Neighborhood` | `estado`/`cidade`/`bairro` | `Country` fixo `Brazil` |
 | `PostalCode` | `cep` | |
-| `Media` | `fotos` (JSON) | mínimo 1 imagem exigido pelo schema — imóvel sem foto não deveria ir ao feed em produção (ver Riscos no plan.md) |
+| `Media` | `fotos` (JSON) | mínimo 1 imagem exigido pelo schema — imóvel sem foto nunca chega a este ponto, já é filtrado em `listar_imoveis_para_feed` (RN2) |
 | `ContactInfo` | dados do tenant/corretor | nome+email mínimo |
 
 **Details** (características):
@@ -97,5 +109,6 @@ uma chave por tenant (RN4) — diferente do padrão `TenantApiKey` da 008.
 
 - **Invariante (RN1/Artigo I):** nenhuma leitura/escrita tenant-scoped acontece antes do tenant
   ser resolvido — Host header no feed, lookup de `clientListingId` no webhook.
-- **Invariante (RN2):** o feed nunca inclui um imóvel com `finalidade IS NULL` — imóvel
-  cadastrado antes desta feature simplesmente não aparece até o corretor definir a finalidade.
+- **Invariante (RN2):** o feed nunca inclui um imóvel com `finalidade IS NULL` ou sem foto — em
+  ambos os casos o imóvel simplesmente não aparece, sem erro, até o corretor completar o
+  cadastro (definir finalidade ou subir uma foto).

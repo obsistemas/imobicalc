@@ -1,11 +1,14 @@
+import json
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
+from pathlib import Path
 
 from redis.asyncio import Redis
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.core.events import emit
 from app.core.tenant_context import tenant_scope
 from app.modules.imoveis.models import Imovel, ImovelStatus, ImovelTipo
@@ -13,8 +16,24 @@ from app.modules.imoveis.schemas import ImovelCreate, ImovelUpdate
 from app.modules.imoveis.viacep_driver import CepLookupDriver
 from app.modules.tenancy.models import Papel, User
 
+# 009-integracao-portais: mesmo limite de tamanho documentado pelo schema VRSync (Media, 7MB).
+_TIPOS_PERMITIDOS = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
+_TAMANHO_MAXIMO_BYTES = 7 * 1024 * 1024
+
 
 class ImovelNotFoundError(Exception):
+    pass
+
+
+class TipoArquivoInvalidoError(Exception):
+    pass
+
+
+class ArquivoMuitoGrandeError(Exception):
+    pass
+
+
+class FotoNaoEncontradaError(Exception):
     pass
 
 
@@ -127,6 +146,66 @@ async def obter_imovel(session: AsyncSession, *, tenant_id: uuid.UUID, imovel_uu
     return imovel
 
 
+def _url_relativa_foto(tenant_id: uuid.UUID, imovel_uuid: uuid.UUID, nome_arquivo: str) -> str:
+    return f"/uploads/imoveis/{tenant_id}/{imovel_uuid}/{nome_arquivo}"
+
+
+def _caminho_disco_foto(tenant_id: uuid.UUID, imovel_uuid: uuid.UUID, nome_arquivo: str) -> Path:
+    return Path(settings.uploads_dir) / "imoveis" / str(tenant_id) / str(imovel_uuid) / nome_arquivo
+
+
+async def adicionar_foto(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    imovel_uuid: uuid.UUID,
+    user: User,
+    conteudo: bytes,
+    content_type: str,
+) -> Imovel:
+    """Upload de foto (009-integracao-portais) — grava em disco (volume Docker, sem
+    dependência de storage externo, RNF009) e acrescenta a URL relativa a `Imovel.fotos`.
+    Reaproveita `obter_imovel` para a mesma checagem de visibilidade do resto do módulo."""
+    if content_type not in _TIPOS_PERMITIDOS:
+        raise TipoArquivoInvalidoError(content_type)
+    if len(conteudo) > _TAMANHO_MAXIMO_BYTES:
+        raise ArquivoMuitoGrandeError(len(conteudo))
+
+    imovel = await obter_imovel(session, tenant_id=tenant_id, imovel_uuid=imovel_uuid, user=user)
+
+    nome_arquivo = f"{uuid.uuid4().hex}.{_TIPOS_PERMITIDOS[content_type]}"
+    caminho = _caminho_disco_foto(tenant_id, imovel_uuid, nome_arquivo)
+    caminho.parent.mkdir(parents=True, exist_ok=True)
+    caminho.write_bytes(conteudo)
+
+    with tenant_scope(tenant_id):
+        fotos = json.loads(imovel.fotos)
+        fotos.append(_url_relativa_foto(tenant_id, imovel_uuid, nome_arquivo))
+        imovel.fotos = json.dumps(fotos)
+        await session.commit()
+        await session.refresh(imovel)
+    return imovel
+
+
+async def remover_foto(
+    session: AsyncSession, *, tenant_id: uuid.UUID, imovel_uuid: uuid.UUID, user: User, indice: int
+) -> Imovel:
+    imovel = await obter_imovel(session, tenant_id=tenant_id, imovel_uuid=imovel_uuid, user=user)
+    fotos = json.loads(imovel.fotos)
+    if indice < 0 or indice >= len(fotos):
+        raise FotoNaoEncontradaError(indice)
+    url_removida = fotos.pop(indice)
+
+    caminho = Path(settings.uploads_dir) / Path(url_removida).relative_to("/uploads")
+    caminho.unlink(missing_ok=True)
+
+    with tenant_scope(tenant_id):
+        imovel.fotos = json.dumps(fotos)
+        await session.commit()
+        await session.refresh(imovel)
+    return imovel
+
+
 async def obter_imovel_publico(session: AsyncSession, *, tenant_id: uuid.UUID, imovel_uuid: uuid.UUID) -> Imovel:
     """Sem `user` — página pública (008-captacao-leads), sem restrição por corretor. Só imóveis
     disponíveis e ativos aparecem (RN2); cada chamada bem-sucedida incrementa `views`."""
@@ -150,7 +229,9 @@ async def obter_imovel_publico(session: AsyncSession, *, tenant_id: uuid.UUID, i
 
 async def listar_imoveis_para_feed(session: AsyncSession, *, tenant_id: uuid.UUID) -> list[Imovel]:
     """Imóveis publicáveis no feed VRSync (009-integracao-portais, RN2): disponível + ativo +
-    finalidade definida — os três critérios, não dois."""
+    finalidade definida + ao menos 1 foto — o schema VRSync exige mínimo 1 imagem por anúncio;
+    sem essa checagem, o Grupo OLX rejeitaria o Listing (não o feed inteiro, mas o imóvel some
+    silenciosamente do lado deles) — melhor nunca publicar um Listing que sabemos inválido."""
     with tenant_scope(tenant_id):
         result = await session.execute(
             select(Imovel).where(
@@ -160,7 +241,8 @@ async def listar_imoveis_para_feed(session: AsyncSession, *, tenant_id: uuid.UUI
                 Imovel.finalidade.is_not(None),
             )
         )
-        return list(result.scalars().all())
+        imoveis = result.scalars().all()
+        return [imovel for imovel in imoveis if json.loads(imovel.fotos)]
 
 
 async def obter_imovel_por_uuid_cross_tenant(session: AsyncSession, *, imovel_uuid: uuid.UUID) -> Imovel | None:

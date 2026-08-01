@@ -45,5 +45,9 @@ class Settings(BaseSettings):
     # tudo (nenhuma senha vazia é aceita).
     canal_pro_webhook_secret: str = ""
 
+    # 009-integracao-portais: diretório onde as fotos de imóvel são gravadas (montado como
+    # volume Docker em produção — sem dependência de storage externo, RNF009).
+    uploads_dir: str = "uploads"
+
 
 settings = Settings()

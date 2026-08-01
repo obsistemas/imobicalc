@@ -61,6 +61,17 @@ async def _criar_imovel(client, token, **overrides):
     return resp.json()
 
 
+async def _dar_foto(db_sessionmaker, imovel_id: str) -> None:
+    """Atalho de teste: define uma foto direto no banco, sem passar pelo endpoint de upload —
+    os testes deste arquivo são sobre a regra de inclusão no feed (RN2), não sobre upload."""
+    async with db_sessionmaker() as session:
+        with system_scope():
+            result = await session.execute(select(Imovel).where(Imovel.uuid == uuid.UUID(imovel_id)))
+            imovel = result.scalar_one()
+            imovel.fotos = '["/uploads/imoveis/x/y/foto.jpg"]'
+            await session.commit()
+
+
 def _imovel_fake(**overrides) -> Imovel:
     base = dict(
         tenant_id=uuid.uuid4(),
@@ -135,10 +146,11 @@ def test_feed_xml_sem_imoveis_ainda_e_valido():
 # --- T813: endpoint GET /imoveis/publico/feed.xml ---------------------------------------------
 
 
-async def test_endpoint_feed_inclui_imovel_disponivel_com_finalidade(client, db_sessionmaker):
+async def test_endpoint_feed_inclui_imovel_disponivel_com_finalidade_e_foto(client, db_sessionmaker):
     _override_cep_driver()
     token, slug = await _signup_and_slug(client, db_sessionmaker, "feed1@example.com")
     imovel = await _criar_imovel(client, token)
+    await _dar_foto(db_sessionmaker, imovel["id"])
 
     resp = await client.get("/imoveis/publico/feed.xml", headers={"Host": _host(slug)})
     assert resp.status_code == 200
@@ -152,15 +164,26 @@ async def test_endpoint_feed_exclui_imovel_sem_finalidade(client, db_sessionmake
     payload = {k: v for k, v in _IMOVEL_PAYLOAD.items() if k != "finalidade"}
     resp_criar = await client.post("/imoveis", json=payload, headers={"Authorization": f"Bearer {token}"})
     imovel_id = resp_criar.json()["id"]
+    await _dar_foto(db_sessionmaker, imovel_id)
 
     resp = await client.get("/imoveis/publico/feed.xml", headers={"Host": _host(slug)})
     assert imovel_id not in resp.text
+
+
+async def test_endpoint_feed_exclui_imovel_sem_foto(client, db_sessionmaker):
+    _override_cep_driver()
+    token, slug = await _signup_and_slug(client, db_sessionmaker, "feedsemfoto@example.com")
+    imovel = await _criar_imovel(client, token)
+
+    resp = await client.get("/imoveis/publico/feed.xml", headers={"Host": _host(slug)})
+    assert imovel["id"] not in resp.text
 
 
 async def test_endpoint_feed_exclui_imovel_vendido(client, db_sessionmaker):
     _override_cep_driver()
     token, slug = await _signup_and_slug(client, db_sessionmaker, "feed3@example.com")
     imovel = await _criar_imovel(client, token)
+    await _dar_foto(db_sessionmaker, imovel["id"])
     await client.put(
         f"/imoveis/{imovel['id']}",
         json={**_IMOVEL_PAYLOAD, "status": "vendido"},
@@ -177,6 +200,8 @@ async def test_endpoint_feed_nao_mistura_tenants(client, db_sessionmaker):
     token_b, slug_b = await _signup_and_slug(client, db_sessionmaker, "feedb@example.com")
     imovel_a = await _criar_imovel(client, token_a)
     imovel_b = await _criar_imovel(client, token_b)
+    await _dar_foto(db_sessionmaker, imovel_a["id"])
+    await _dar_foto(db_sessionmaker, imovel_b["id"])
 
     resp_a = await client.get("/imoveis/publico/feed.xml", headers={"Host": _host(slug_a)})
     assert imovel_a["id"] in resp_a.text

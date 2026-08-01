@@ -31,12 +31,16 @@ const form = reactive({
   iptu_quitado: null,
   escritura_ok: null,
   status: "disponivel",
+  finalidade: null,
 });
 
 const logradouro = ref("");
 const loading = ref(false);
 const salvando = ref(false);
 const erro = ref("");
+const fotos = ref([]);
+const enviandoFoto = ref(false);
+const erroFoto = ref("");
 
 async function carregarImovel() {
   loading.value = true;
@@ -44,10 +48,44 @@ async function carregarImovel() {
     const { data } = await api.get(`/imoveis/${imovelId.value}`);
     Object.assign(form, data);
     logradouro.value = data.logradouro ?? "";
+    fotos.value = data.fotos ?? [];
   } catch {
     erro.value = "Não foi possível carregar o imóvel.";
   } finally {
     loading.value = false;
+  }
+}
+
+async function enviarFoto(event) {
+  const arquivo = event.target.files?.[0];
+  if (!arquivo) return;
+  erroFoto.value = "";
+  enviandoFoto.value = true;
+  try {
+    const dadosForm = new FormData();
+    dadosForm.append("arquivo", arquivo);
+    const { data } = await api.post(`/imoveis/${imovelId.value}/fotos`, dadosForm);
+    fotos.value = data.fotos;
+  } catch (err) {
+    erroFoto.value =
+      err.response?.status === 413
+        ? "Arquivo muito grande — limite de 7MB."
+        : err.response?.status === 422
+          ? "Tipo de arquivo inválido — use JPEG, PNG ou WEBP."
+          : "Não foi possível enviar a foto.";
+  } finally {
+    enviandoFoto.value = false;
+    event.target.value = "";
+  }
+}
+
+async function removerFoto(indice) {
+  erroFoto.value = "";
+  try {
+    const { data } = await api.delete(`/imoveis/${imovelId.value}/fotos/${indice}`);
+    fotos.value = data.fotos;
+  } catch {
+    erroFoto.value = "Não foi possível remover a foto.";
   }
 }
 
@@ -212,6 +250,17 @@ onMounted(() => {
             <label class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Valor anunciado (R$)</label>
             <input v-model="form.valor_anunciado" type="number" step="0.01" class="input" />
           </div>
+          <div>
+            <label class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
+              Finalidade
+              <span class="font-normal normal-case text-slate-400">(necessário para publicar no feed de portais)</span>
+            </label>
+            <select v-model="form.finalidade" class="input">
+              <option :value="null">—</option>
+              <option value="venda">Venda</option>
+              <option value="aluguel">Aluguel</option>
+            </select>
+          </div>
         </div>
       </section>
 
@@ -235,6 +284,32 @@ onMounted(() => {
             </label>
           </div>
         </div>
+      </section>
+
+      <section v-if="editando">
+        <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          Fotos
+          <span class="font-normal normal-case text-slate-400">(pelo menos 1 é necessária para o imóvel entrar no feed de portais)</span>
+        </h2>
+        <div class="flex flex-wrap gap-3">
+          <div v-for="(url, indice) in fotos" :key="url" class="group relative">
+            <img :src="url" class="h-24 w-24 rounded-md object-cover" alt="Foto do imóvel" />
+            <button
+              type="button"
+              class="absolute -right-2 -top-2 rounded-full bg-red-600 px-1.5 text-xs text-white opacity-0 transition group-hover:opacity-100"
+              @click="removerFoto(indice)"
+            >
+              ×
+            </button>
+          </div>
+          <label
+            class="flex h-24 w-24 cursor-pointer items-center justify-center rounded-md border-2 border-dashed border-slate-300 text-xs text-slate-500 hover:border-primary dark:border-slate-600"
+          >
+            {{ enviandoFoto ? "Enviando…" : "+ Foto" }}
+            <input type="file" accept="image/jpeg,image/png,image/webp" class="hidden" :disabled="enviandoFoto" @change="enviarFoto" />
+          </label>
+        </div>
+        <p v-if="erroFoto" class="mt-2 text-sm text-red-600" role="alert">{{ erroFoto }}</p>
       </section>
 
       <p v-if="erro" class="text-sm text-red-600" role="alert">{{ erro }}</p>

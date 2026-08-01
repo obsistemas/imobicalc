@@ -64,12 +64,23 @@ Mostrar a URL do feed (`https://{slug}.{platform_domain}/api/v1/imoveis/publico/
 tela de integração já existente, com uma nota sobre rodar o Validador XML oficial antes de
 cadastrar no Canal Pro de verdade.
 
+**P5 — Upload de fotos (US3, descoberto durante o P2)**
+`POST`/`DELETE /imoveis/{id}/fotos[/{indice}]` + `StaticFiles` em `/uploads` + volume Docker.
+Decisão de design: armazenar caminho **relativo** em `Imovel.fotos` e montar a URL absoluta em
+cada leitura a partir do host da requisição (RN6) — em vez de gravar a URL absoluta no momento
+do upload. *Por quê:* o corretor loga num host, o feed é buscado por outro (o crawler do Grupo
+OLX), e o visitante da página pública por um terceiro (mesmo que hoje, na prática, todos
+resolvam para o mesmo subdomínio do tenant) — gravar a URL de upload prenderia a foto ao host
+usado naquela hora específica, arriscando uma URL errada se isso mudar (troca de domínio,
+por exemplo). *Alternativa rejeitada:* gravar a URL absoluta já no upload — mais simples de ler,
+mas acopla um dado permanente (a foto) a um detalhe efêmero (qual host serviu aquela requisição).
+
 ## Riscos
 
 | Risco | Mitigação |
 |---|---|
 | Schema XML gerado não bater 100% com o que o validador oficial do Grupo OLX exige (documentação pública é parcial) | Documentado explicitamente (spec.md, Fora de escopo) — rodar `developers.grupozap.com/feeds/xml_validator/` antes de cadastrar a URL num Canal Pro real é responsabilidade do usuário, não algo que dá pra verificar por aqui |
-| Imóvel sem foto no feed (VRSync exige mínimo 1 imagem) | Aceito nesta v1 — imóvel sem foto entra no feed mesmo assim; se o Grupo OLX rejeitar essas linhas, o resto do feed continua válido (comportamento de feed em lote: uma linha ruim não devia derrubar as outras) |
+| Imóvel sem foto no feed (VRSync exige mínimo 1 imagem) | Mitigado (RN2): `listar_imoveis_para_feed` exclui imóvel sem foto — nunca publicamos um Listing que sabemos que seria rejeitado |
 | `SECRET_KEY` de homologação nunca é obtida (depende de contato comercial com o Grupo OLX) | Webhook fica inerte com `settings.canal_pro_webhook_secret` vazio — mesmo padrão do `SUPERADMIN_EMAIL`, não bloqueia o resto do sistema |
 | Payload do Grupo OLX ganhar campos novos sem aviso (mencionado na doc deles) | `criar_lead_portal` ignora campos desconhecidos (parsing tolerante, não `extra="forbid"` no schema Pydantic) |
 

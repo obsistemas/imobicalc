@@ -5,8 +5,50 @@ info:
 tags:
   - name: publico
   - name: webhooks
+  - name: imoveis
 
 paths:
+  /imoveis/{imovel_id}/fotos:
+    post:
+      tags: [imoveis]
+      summary: Upload de foto do imóvel (US3) — JPEG/PNG/WEBP até 7MB
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: imovel_id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                arquivo: { type: string, format: binary }
+      responses:
+        '201':
+          description: Imóvel atualizado, com a nova URL (absoluta) em fotos
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImovelOut' }
+        '404': { description: Imóvel não encontrado (ou de outro corretor/tenant) }
+        '422': { description: Tipo de arquivo inválido — use JPEG, PNG ou WEBP }
+        '413': { description: Arquivo maior que 7MB }
+
+  /imoveis/{imovel_id}/fotos/{indice}:
+    delete:
+      tags: [imoveis]
+      summary: Remove uma foto do imóvel pelo índice na lista
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: imovel_id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: indice, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Imóvel atualizado, sem a foto removida
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImovelOut' }
+        '404': { description: Imóvel ou índice de foto não encontrado }
+
   /imoveis/publico/feed.xml:
     get:
       tags: [publico]
@@ -39,8 +81,23 @@ components:
       type: http
       scheme: basic
       description: SECRET_KEY única do sistema (settings.canal_pro_webhook_secret) — não é uma chave por tenant
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
 
   schemas:
+    ImovelOut:
+      type: object
+      description: Schema completo já definido em specs anteriores (001-fundacao/002-avaliacao) — aqui só o campo relevante a esta feature.
+      properties:
+        id: { type: string, format: uuid }
+        finalidade: { type: string, enum: [venda, aluguel], nullable: true }
+        fotos:
+          type: array
+          items: { type: string, format: uri }
+          description: URLs absolutas (RN6) — montadas a partir do host da requisição, nunca gravadas assim no banco
+
     LeadPortalPayload:
       type: object
       description: Formato real documentado em developers.grupozap.com/webhooks/integration_leads.html

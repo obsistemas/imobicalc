@@ -14,4 +14,6 @@ dist/
 .env
 .env.prod
 
+backend/uploads/
+
 /imobicalc-deploy-*.zip

@@ -85,7 +85,7 @@ class ImovelOut(BaseModel):
     data_venda: date | None
 
     @classmethod
-    def from_imovel(cls, imovel: Imovel) -> "ImovelOut":
+    def from_imovel(cls, imovel: Imovel, *, base_url: str = "") -> "ImovelOut":
         return cls(
             id=imovel.uuid,
             corretor_id=imovel.corretor_id,
@@ -114,7 +114,7 @@ class ImovelOut(BaseModel):
             matricula=imovel.matricula,
             iptu_quitado=imovel.iptu_quitado,
             escritura_ok=imovel.escritura_ok,
-            fotos=json.loads(imovel.fotos),
+            fotos=[f"{base_url}{p}" for p in json.loads(imovel.fotos)],
             created_at=imovel.created_at,
             updated_at=imovel.updated_at,
             data_venda=imovel.data_venda,
@@ -147,7 +147,7 @@ class ImovelPublico(BaseModel):
     fotos: list[str]
 
     @classmethod
-    def from_imovel(cls, imovel: Imovel) -> "ImovelPublico":
+    def from_imovel(cls, imovel: Imovel, *, base_url: str = "") -> "ImovelPublico":
         return cls(
             id=imovel.uuid,
             titulo=imovel.titulo,
@@ -161,5 +161,5 @@ class ImovelPublico(BaseModel):
             banheiros=imovel.banheiros,
             vagas=imovel.vagas,
             valor_anunciado=imovel.valor_anunciado,
-            fotos=json.loads(imovel.fotos),
+            fotos=[f"{base_url}{p}" for p in json.loads(imovel.fotos)],
         )

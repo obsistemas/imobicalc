@@ -1,7 +1,9 @@
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import SessionLocal
@@ -45,6 +47,11 @@ def create_app() -> FastAPI:
 
     app = FastAPI(title="Proptech Avaliador API", version="0.1.0", lifespan=_lifespan)
     app.add_middleware(IdentifyTenantMiddleware)
+
+    # 009-integracao-portais: fotos de imóvel — servidas fora do /api/v1 (não é um recurso de
+    # API, é um arquivo estático); volume Docker em produção, sem storage externo (RNF009).
+    os.makedirs(settings.uploads_dir, exist_ok=True)
+    app.mount("/uploads", StaticFiles(directory=settings.uploads_dir), name="uploads")
 
     app.include_router(health_router)
     app.include_router(tenancy_router, prefix="/api/v1")

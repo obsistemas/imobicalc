@@ -45,7 +45,7 @@ def _preco(parent: Element, tag: str, valor: Decimal, *, periodo: str | None = N
     el.text = str(valor)
 
 
-def _monta_listing(imovel: Imovel) -> Element:
+def _monta_listing(imovel: Imovel, *, base_url: str) -> Element:
     usage_type, property_type = _TIPO_PARA_VRSYNC[imovel.tipo]
     listing = Element("Listing")
 
@@ -65,7 +65,7 @@ def _monta_listing(imovel: Imovel) -> Element:
         item = SubElement(media, "Item", {"medium": "image"})
         if i == 0:
             item.set("primary", "true")
-        item.text = url
+        item.text = f"{base_url}{url}"
 
     contact_info = SubElement(listing, "ContactInfo")
     _texto(contact_info, "Name", imovel.titulo)
@@ -95,9 +95,13 @@ def _monta_listing(imovel: Imovel) -> Element:
     return listing
 
 
-def gerar_feed_vrsync(imoveis: list[Imovel], *, provider: str, email: str, contact_name: str) -> str:
+def gerar_feed_vrsync(
+    imoveis: list[Imovel], *, provider: str, email: str, contact_name: str, base_url: str = ""
+) -> str:
     """Gera o XML do feed VRSync. `imoveis` já deve vir filtrado (RN2: disponível + ativo +
-    finalidade definida) — esta função não filtra nada, só serializa."""
+    finalidade definida + ao menos 1 foto) — esta função não filtra nada, só serializa.
+    `base_url` (ex.: `https://{slug}.dominio.com.br`) prefixa as URLs de `Media` — o Grupo OLX
+    busca essas imagens de fora, então precisam ser absolutas, nunca relativas."""
     root = Element(
         "ListingDataFeed",
         {
@@ -115,6 +119,6 @@ def gerar_feed_vrsync(imoveis: list[Imovel], *, provider: str, email: str, conta
 
     listings = SubElement(root, "Listings")
     for imovel in imoveis:
-        listings.append(_monta_listing(imovel))
+        listings.append(_monta_listing(imovel, base_url=base_url))
 
     return '<?xml version="1.0" encoding="UTF-8"?>\n' + tostring(root, encoding="unicode")

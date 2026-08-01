@@ -14,6 +14,11 @@ COPY app ./app
 COPY alembic ./alembic
 COPY alembic.ini .
 
+# 009-integracao-portais: precisa existir (e pertencer ao usuário não-root) antes do volume
+# Docker ser montado por cima em produção — um volume nomeado herda dono/permissão do que já
+# existia no caminho na primeira criação.
+RUN mkdir -p /app/uploads
+
 RUN useradd --create-home --shell /bin/bash app && chown -R app:app /app
 USER app
 
