@@ -1,3 +1,7 @@
+# Uso LOCAL/DEV apenas — sobe Postgres/Redis reais para rodar a suíte de testes contra banco de
+# verdade. NUNCA use este arquivo no VPS (por isso nem entra no zip de deploy, gerado a partir
+# de `git archive` — ver .gitattributes); produção usa exclusivamente docker-compose.prod.yml,
+# que não expõe porta nenhuma de Postgres/Redis ao host.
 services:
   postgres:
     image: postgres:16
@@ -6,14 +10,14 @@ services:
       POSTGRES_PASSWORD: proptech
       POSTGRES_DB: proptech
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
   redis:
     image: redis:7
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
 
 volumes:
   postgres_data:

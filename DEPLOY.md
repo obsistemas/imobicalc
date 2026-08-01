@@ -59,6 +59,15 @@ Edite `.env.prod` e preencha (nunca reutilize os valores de exemplo):
 docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
 ```
 
+**Sempre com `-f docker-compose.prod.yml` explícito.** O repositório também tem um
+`docker-compose.yml` (sem sufixo) que é só para desenvolvimento local — sobe Postgres/Redis com
+porta exposta direto no host (5432/6379) para rodar a suíte de testes numa máquina de
+desenvolvedor. Se você clonar o repo direto no servidor (passo 2, opção alternativa) e rodar
+`docker compose up` **sem** o `-f`, o Compose lê esse arquivo por padrão e expõe 5432/6379 no
+host — é exatamente esse tipo de colisão de porta com outro sistema já rodando no VPS que este
+guia existe para evitar. O zip de deploy (`gerar-deploy-zip.sh`) já exclui esse arquivo por
+segurança (`.gitattributes`), mas um clone direto do repositório não.
+
 O backend roda `alembic upgrade head` automaticamente antes de subir a cada start (idempotente —
 seguro rodar de novo em toda atualização).
 

@@ -1,0 +1,5 @@
+# docker-compose.yml é só para dev local (sobe Postgres/Redis com porta exposta ao host, pra
+# rodar a suíte de testes) — nunca deve ir para o VPS. export-ignore tira esse arquivo do zip
+# gerado por `git archive` (gerar-deploy-zip.sh), evitando que alguém suba com ele por engano
+# e exponha 5432/6379 direto no host, colidindo com outro serviço já rodando no servidor.
+docker-compose.yml export-ignore
