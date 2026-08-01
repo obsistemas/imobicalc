@@ -40,6 +40,11 @@ Edite `.env.prod` e preencha (nunca reutilize os valores de exemplo):
 - `JWT_SECRET` — gerar com `python3 -c "import secrets; print(secrets.token_urlsafe(48))"`.
 - `ENCRYPTION_KEY` — gerar com `python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` (precisa ter `cryptography` instalado; se não tiver Python à mão localmente, rode dentro do container depois do primeiro build: `docker compose -f docker-compose.prod.yml run --rm backend python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`).
 - `BACKEND_PORT`/`FRONTEND_PORT` — ajuste se colidir com o que já roda no servidor (passo 1).
+- `POSTGRES_INTERNAL_PORT` (padrão `55432`) — porta em que o Postgres escuta **dentro** da rede
+  interna do compose; nunca é publicada ao host (o serviço nunca foi acessível de fora). Não é
+  sobre evitar conflito de porta de verdade — é só uma camada extra de isolamento. Se já tiver um
+  deploy rodando e mudar este valor, o container do Postgres reinicia com a nova porta (dado no
+  volume não é afetado) e o backend reconecta automaticamente no próximo restart.
 - `SUPERADMIN_EMAIL`/`SUPERADMIN_PASSWORD` — credenciais do painel da plataforma
   (`/admin/login`, 007-superadmin), fora do modelo de tenant. Provisionado automaticamente no
   primeiro start (idempotente — reiniciar depois não reseta a senha). Deixe em branco para não
