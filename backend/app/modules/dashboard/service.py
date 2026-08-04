@@ -5,24 +5,27 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import rbac
 from app.core.tenant_context import tenant_scope
 from app.modules.dashboard.calculos import inicio_periodo, media_dias, media_dias_calendario, preencher_serie_vendas
 from app.modules.imoveis.models import Imovel, ImovelStatus
 from app.modules.leads.models import ESTAGIOS_TERMINAIS, EstagioLead, Lead
-from app.modules.tenancy.models import Papel, User
+from app.modules.tenancy.models import User
 
 
 def _filtros_imovel(tenant_id: uuid.UUID, user: User) -> list:
     filtros = [Imovel.tenant_id == tenant_id, Imovel.ativo.is_(True)]
-    if user.papel == Papel.CORRETOR:
-        filtros.append(Imovel.corretor_id == user.uuid)
+    escopo = rbac.escopo_visibilidade(user)
+    if escopo is not None:
+        filtros.append(Imovel.corretor_id == escopo)
     return filtros
 
 
 def _filtros_lead(tenant_id: uuid.UUID, user: User) -> list:
     filtros = [Lead.tenant_id == tenant_id]
-    if user.papel == Papel.CORRETOR:
-        filtros.append(Lead.corretor_id == user.uuid)
+    escopo = rbac.escopo_visibilidade(user)
+    if escopo is not None:
+        filtros.append((Lead.corretor_id == escopo) | Lead.corretor_id.is_(None))
     return filtros
 
 

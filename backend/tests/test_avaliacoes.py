@@ -237,7 +237,7 @@ async def test_corretor_nao_ve_avaliacao_de_imovel_de_outro_corretor(client, db_
     )
     await client.post(
         "/users/convites",
-        json={"email": "aval-corretor@example.com"},
+        json={"email": "aval-corretor@example.com", "papel": "corretor"},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     async with db_sessionmaker() as session:

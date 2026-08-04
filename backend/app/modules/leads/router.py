@@ -7,7 +7,7 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.core.deps import get_current_user, require_admin
+from app.core.deps import get_current_user, require_dono
 from app.core.redis_client import get_redis
 from app.database import get_session
 from app.modules.imoveis.service import ImovelNotFoundError
@@ -50,7 +50,7 @@ def _verifica_canal_pro_secret(credentials: HTTPBasicCredentials | None = Depend
 @router.post("/leads/integracao/api-key", response_model=ApiKeyGerada)
 async def gerar_api_key(
     session: AsyncSession = Depends(get_session),
-    user: User = Depends(require_admin),
+    user: User = Depends(require_dono),
 ):
     chave, criada_em = await service.gerar_api_key(session, tenant_id=user.tenant_id)
     return ApiKeyGerada(api_key=chave, created_at=criada_em)
@@ -59,7 +59,7 @@ async def gerar_api_key(
 @router.get("/leads/integracao/api-key", response_model=ApiKeyStatus)
 async def status_api_key(
     session: AsyncSession = Depends(get_session),
-    user: User = Depends(require_admin),
+    user: User = Depends(require_dono),
 ):
     chave = await service.obter_status_api_key(session, tenant_id=user.tenant_id)
     if chave is None:

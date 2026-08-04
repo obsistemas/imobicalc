@@ -7,11 +7,12 @@ from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import rbac
 from app.core.events import emit
 from app.core.tenant_context import system_scope, tenant_scope
 from app.modules.leads.models import ESTAGIOS_TERMINAIS, EstagioLead, Lead, LeadNota, OrigemLead, TenantApiKey
 from app.modules.leads.schemas import LeadCreate, LeadPortalPayload, LeadPublicoCreate, LeadWebhookCreate
-from app.modules.tenancy.models import Papel, User
+from app.modules.tenancy.models import User
 
 
 class LeadNotFoundError(Exception):
@@ -31,9 +32,10 @@ def _hash_api_key(chave: str) -> str:
 
 
 def _garante_visivel(lead: Lead, user: User) -> None:
-    # 404 (não 403) para não revelar a um corretor a existência de lead de outro corretor.
-    # corretor_id=None (008-captacao-leads, RN7) é visível para qualquer corretor do tenant.
-    if user.papel == Papel.CORRETOR and lead.corretor_id is not None and lead.corretor_id != user.uuid:
+    # 404 (não 403) para não revelar a existência de lead fora do escopo de quem pergunta.
+    # corretor_id=None (008-captacao-leads, RN7) é visível a qualquer um com escopo restrito.
+    escopo = rbac.escopo_visibilidade(user)
+    if escopo is not None and lead.corretor_id is not None and lead.corretor_id != escopo:
         raise LeadNotFoundError(lead.uuid)
 
 
@@ -48,7 +50,7 @@ async def criar_lead(
     with tenant_scope(tenant_id):
         lead = Lead(
             tenant_id=tenant_id,
-            corretor_id=corretor.uuid,
+            corretor_id=rbac.corretor_id_efetivo(corretor),
             imovel_id=payload.imovel_id,
             nome=payload.nome,
             email=payload.email,
@@ -116,9 +118,10 @@ async def listar_leads(
 ) -> list[Lead]:
     with tenant_scope(tenant_id):
         filtros = [Lead.tenant_id == tenant_id]
-        if user.papel == Papel.CORRETOR:
-            # corretor_id=None (008-captacao-leads, RN7) fica visível a qualquer corretor.
-            filtros.append((Lead.corretor_id == user.uuid) | Lead.corretor_id.is_(None))
+        escopo = rbac.escopo_visibilidade(user)
+        if escopo is not None:
+            # corretor_id=None (008-captacao-leads, RN7) fica visível a qualquer um com escopo restrito.
+            filtros.append((Lead.corretor_id == escopo) | Lead.corretor_id.is_(None))
         if estagio is not None:
             filtros.append(Lead.estagio == estagio)
         if origem is not None:

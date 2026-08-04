@@ -3,7 +3,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, require_pode_avaliar
 from app.database import get_session
 from app.modules.avaliacoes.service import AvaliacaoNotFoundError
 from app.modules.imoveis.service import ImovelNotFoundError
@@ -24,7 +24,7 @@ async def criar_sugestao_preco(
     avaliacao_id: uuid.UUID,
     payload: SugestaoPrecoCreate,
     session: AsyncSession = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_pode_avaliar),
 ):
     try:
         sugestao = await service.sugerir_preco(

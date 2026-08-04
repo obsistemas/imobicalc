@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, model_validator
 
 from app.modules.tenancy.models import Papel
 
@@ -65,19 +65,58 @@ class TotpVerifyResponse(BaseModel):
 
 class ConviteCreateRequest(BaseModel):
     email: EmailStr
+    papel: Papel
+    assistente_de_id: uuid.UUID | None = None
+
+    @model_validator(mode="after")
+    def _valida_papel(self) -> "ConviteCreateRequest":
+        # 010-rbac-papeis, US6/AC1: convite nunca cria um segundo dono; assistente_de_id só
+        # faz sentido (e é obrigatório) quando papel=assistente.
+        if self.papel == Papel.DONO:
+            raise ValueError("não é possível convidar alguém como dono")
+        if self.papel == Papel.ASSISTENTE and self.assistente_de_id is None:
+            raise ValueError("convite de assistente exige assistente_de_id")
+        if self.papel != Papel.ASSISTENTE and self.assistente_de_id is not None:
+            raise ValueError("assistente_de_id só é válido para papel=assistente")
+        return self
 
 
 class ConviteOut(BaseModel):
     id: uuid.UUID
     email: EmailStr
     papel: Papel
+    assistente_de_id: uuid.UUID | None = None
     expires_at: datetime
 
     model_config = {"from_attributes": True}
 
     @classmethod
     def from_convite(cls, convite) -> "ConviteOut":
-        return cls(id=convite.uuid, email=convite.email, papel=convite.papel, expires_at=convite.expires_at)
+        return cls(
+            id=convite.uuid,
+            email=convite.email,
+            papel=convite.papel,
+            assistente_de_id=convite.assistente_de_id,
+            expires_at=convite.expires_at,
+        )
+
+
+class UserResumo(BaseModel):
+    uuid: uuid.UUID
+    nome: str
+    email: EmailStr
+    papel: Papel
+    assistente_de_id: uuid.UUID | None = None
+
+    @classmethod
+    def from_user(cls, user) -> "UserResumo":
+        return cls(
+            uuid=user.uuid,
+            nome=user.nome,
+            email=user.email,
+            papel=user.papel,
+            assistente_de_id=user.assistente_de_id,
+        )
 
 
 class AceitarConviteRequest(BaseModel):

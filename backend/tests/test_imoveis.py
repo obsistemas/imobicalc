@@ -133,7 +133,7 @@ async def test_corretor_so_ve_imoveis_proprios_admin_ve_todos(client, db_session
 
     await client.post(
         "/users/convites",
-        json={"email": "corretor-visibilidade@example.com"},
+        json={"email": "corretor-visibilidade@example.com", "papel": "corretor"},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     async with db_sessionmaker() as session:

@@ -3,7 +3,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, require_pode_avaliar
 from app.database import get_session
 from app.modules.avaliacoes import calculos, service
 from app.modules.avaliacoes.schemas import AvaliacaoCreate, AvaliacaoOut
@@ -23,7 +23,7 @@ async def criar_avaliacao(
     imovel_id: uuid.UUID,
     payload: AvaliacaoCreate,
     session: AsyncSession = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_pode_avaliar),
 ):
     try:
         avaliacao = await service.avaliar_imovel(

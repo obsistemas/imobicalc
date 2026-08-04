@@ -30,6 +30,10 @@ class ConviteInvalidoOuExpiradoError(Exception):
     pass
 
 
+class AssistenteDeInvalidoError(Exception):
+    pass
+
+
 def _slugify(nome: str) -> str:
     # Remove acentos antes de reduzir a [a-z0-9-] — "Imobiliária" deve virar "imobiliaria",
     # não "imobili-ria" (subdomínio precisa ser legível, não só válido).
@@ -83,7 +87,7 @@ async def signup(session: AsyncSession, payload: SignupRequest) -> tuple[User, A
             nome=payload.nome,
             email=payload.email,
             password_hash=hash_password(payload.senha),
-            papel=Papel.ADMIN,
+            papel=Papel.DONO,
             tenant_id=tenant.uuid,
         )
         session.add(admin)
@@ -124,7 +128,13 @@ async def get_tenant_by_uuid(session: AsyncSession, tenant_id: uuid.UUID) -> Ten
 
 
 async def create_convite(
-    session: AsyncSession, *, tenant_id: uuid.UUID, criado_por: User, email: str
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    criado_por: User,
+    email: str,
+    papel: Papel,
+    assistente_de_id: uuid.UUID | None = None,
 ) -> Convite:
     if await _email_exists(session, email):
         raise EmailAlreadyExistsError(email)
@@ -139,6 +149,17 @@ async def create_convite(
 
     now = datetime.now(timezone.utc)
     with tenant_scope(tenant_id):
+        if papel == Papel.ASSISTENTE:
+            # US6/AC3: assistente_de_id precisa apontar para um corretor existente, ativo, do
+            # mesmo tenant — o schema já garante que assistente_de_id != None chegou até aqui.
+            result = await session.execute(
+                select(User).where(
+                    User.uuid == assistente_de_id, User.papel == Papel.CORRETOR, User.ativo.is_(True)
+                )
+            )
+            if result.scalar_one_or_none() is None:
+                raise AssistenteDeInvalidoError(assistente_de_id)
+
         result = await session.execute(select(Convite).where(Convite.email == email))
         for existente in result.scalars().all():
             if existente.pendente(now):
@@ -146,7 +167,8 @@ async def create_convite(
 
         convite = Convite(
             email=email,
-            papel=Papel.CORRETOR,
+            papel=papel,
+            assistente_de_id=assistente_de_id,
             token=secrets.token_urlsafe(32),
             criado_por_id=criado_por.id,
             expires_at=now + timedelta(days=7),
@@ -155,6 +177,14 @@ async def create_convite(
         session.add(convite)
         await session.commit()
     return convite
+
+
+async def listar_usuarios(session: AsyncSession, *, tenant_id: uuid.UUID) -> list[User]:
+    with tenant_scope(tenant_id):
+        result = await session.execute(
+            select(User).where(User.tenant_id == tenant_id, User.ativo.is_(True)).order_by(User.nome)
+        )
+        return list(result.scalars().all())
 
 
 async def aceitar_convite(session: AsyncSession, token: str, payload: AceitarConviteRequest) -> tuple[User, AuthResponse]:
@@ -181,6 +211,7 @@ async def aceitar_convite(session: AsyncSession, token: str, payload: AceitarCon
             email=convite.email,
             password_hash=hash_password(payload.senha),
             papel=convite.papel,
+            assistente_de_id=convite.assistente_de_id,
             tenant_id=convite.tenant_id,
         )
         session.add(novo_user)

@@ -2,9 +2,11 @@
 import { onMounted, reactive, ref } from "vue";
 import { useRoute } from "vue-router";
 import api from "../api/client";
+import { useAuthStore } from "../stores/auth";
 
 const route = useRoute();
 const imovelId = route.params.id;
+const auth = useAuthStore();
 
 const metodo = ref("comparativo");
 const form = reactive({
@@ -114,7 +116,11 @@ onMounted(carregarHistorico);
   <div class="mx-auto max-w-3xl p-6">
     <h1 class="mb-6 text-xl font-semibold text-slate-900 dark:text-white">Avaliar imóvel</h1>
 
-    <form class="space-y-6" @submit.prevent="calcular">
+    <p v-if="!auth.podeAvaliar" class="text-sm text-amber-600">
+      Assistente não pode fazer avaliação nem sugestão de preço.
+    </p>
+
+    <form v-else class="space-y-6" @submit.prevent="calcular">
       <div>
         <label class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Método</label>
         <select v-model="metodo" class="input">

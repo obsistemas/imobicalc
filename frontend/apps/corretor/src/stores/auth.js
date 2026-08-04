@@ -10,7 +10,13 @@ export const useAuthStore = defineStore("auth", {
   }),
   getters: {
     isAuthenticated: (state) => !!state.accessToken,
-    isAdmin: (state) => state.user?.papel === "admin",
+    isDono: (state) => state.user?.papel === "dono",
+    isGerente: (state) => state.user?.papel === "gerente",
+    isAssistente: (state) => state.user?.papel === "assistente",
+    // 010-rbac-papeis: dono ou gerente — ações de gestão além do próprio (equipe, integrações).
+    temGestao: (state) => state.user?.papel === "dono" || state.user?.papel === "gerente",
+    // 010-rbac-papeis: todos os papéis exceto assistente podem avaliar/sugerir preço.
+    podeAvaliar: (state) => state.user?.papel !== "assistente",
   },
   actions: {
     async signup({ nomeTenant, nome, email, senha }) {

@@ -154,7 +154,9 @@ async def test_corretor_ve_so_propria_carteira_admin_ve_tudo(client, db_sessionm
     plano_pro = next(p for p in planos_resp.json() if p["nome"] == "pro")
     await client.post("/license/upgrade", json={"plan_id": plano_pro["id"]}, headers={"Authorization": f"Bearer {admin_token}"})
     await client.post(
-        "/users/convites", json={"email": "resumo-corretor@example.com"}, headers={"Authorization": f"Bearer {admin_token}"}
+        "/users/convites",
+        json={"email": "resumo-corretor@example.com", "papel": "corretor"},
+        headers={"Authorization": f"Bearer {admin_token}"},
     )
     async with db_sessionmaker() as session:
         with system_scope():

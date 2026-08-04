@@ -1,0 +1,67 @@
+openapi: 3.0.3
+info:
+  title: Proptech Avaliador API — Feature 010 (RBAC 4 Papéis)
+  version: 0.10.0
+tags:
+  - name: usuarios
+  - name: convites
+
+paths:
+  /users:
+    get:
+      tags: [usuarios]
+      summary: Lista os usuários ativos do tenant (dono/gerente)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Equipe do tenant
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/UsuarioOut' }
+        '403': { description: Apenas dono/gerente podem listar a equipe }
+
+  /users/convites:
+    post:
+      tags: [convites]
+      summary: Cria convite com papel escolhido (dono, com 2FA)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ConviteCreateRequest' }
+      responses:
+        '201': { description: Convite criado }
+        '403': { description: Apenas dono (com 2FA ativo) pode convidar }
+        '422': { description: "Assistente sem assistente_de_id válido, ou apontando para corretor de outro tenant/inexistente" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    UsuarioOut:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        nome: { type: string }
+        email: { type: string, format: email }
+        papel: { type: string, enum: [dono, gerente, corretor, assistente] }
+        assistente_de_id: { type: string, format: uuid, nullable: true }
+
+    ConviteCreateRequest:
+      type: object
+      required: [email, papel]
+      properties:
+        email: { type: string, format: email }
+        papel: { type: string, enum: [gerente, corretor, assistente] }
+        assistente_de_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Obrigatório e validado (corretor ativo do mesmo tenant) quando papel=assistente

@@ -44,7 +44,9 @@ async def _admin_without_2fa(client, email="admin-sem-2fa@example.com", senha="s
 async def test_criar_convite_sem_2fa_retorna_403(client):
     token = await _admin_without_2fa(client)
     resp = await client.post(
-        "/users/convites", json={"email": "novo@example.com"}, headers={"Authorization": f"Bearer {token}"}
+        "/users/convites",
+        json={"email": "novo@example.com", "papel": "corretor"},
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 403
 
@@ -52,7 +54,9 @@ async def test_criar_convite_sem_2fa_retorna_403(client):
 async def test_criar_convite_com_2fa_ok(client):
     token = await _admin_with_2fa(client)
     resp = await client.post(
-        "/users/convites", json={"email": "corretor@example.com"}, headers={"Authorization": f"Bearer {token}"}
+        "/users/convites",
+        json={"email": "corretor@example.com", "papel": "corretor"},
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 201
     body = resp.json()
@@ -62,7 +66,7 @@ async def test_criar_convite_com_2fa_ok(client):
 
 async def test_criar_convite_duplicado_pendente_retorna_409(client):
     token = await _admin_with_2fa(client)
-    payload = {"email": "duplicado@example.com"}
+    payload = {"email": "duplicado@example.com", "papel": "corretor"}
     headers = {"Authorization": f"Bearer {token}"}
 
     first = await client.post("/users/convites", json=payload, headers=headers)
@@ -75,7 +79,9 @@ async def test_criar_convite_duplicado_pendente_retorna_409(client):
 async def test_criar_convite_para_email_ja_cadastrado_retorna_409(client):
     token = await _admin_with_2fa(client, email="admin2@example.com")
     resp = await client.post(
-        "/users/convites", json={"email": "admin2@example.com"}, headers={"Authorization": f"Bearer {token}"}
+        "/users/convites",
+        json={"email": "admin2@example.com", "papel": "corretor"},
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 409
 
@@ -88,7 +94,9 @@ async def test_aceitar_convite_cria_corretor_e_retorna_sessao(client, db_session
 
     token = await _admin_with_2fa(client, email="admin3@example.com")
     await client.post(
-        "/users/convites", json={"email": "novocorretor@example.com"}, headers={"Authorization": f"Bearer {token}"}
+        "/users/convites",
+        json={"email": "novocorretor@example.com", "papel": "corretor"},
+        headers={"Authorization": f"Bearer {token}"},
     )
 
     async with db_sessionmaker() as session:
@@ -125,7 +133,9 @@ async def test_aceitar_convite_ja_usado_retorna_410(client, db_sessionmaker):
 
     token = await _admin_with_2fa(client, email="admin4@example.com")
     await client.post(
-        "/users/convites", json={"email": "usaduasvezes@example.com"}, headers={"Authorization": f"Bearer {token}"}
+        "/users/convites",
+        json={"email": "usaduasvezes@example.com", "papel": "corretor"},
+        headers={"Authorization": f"Bearer {token}"},
     )
 
     async with db_sessionmaker() as session:

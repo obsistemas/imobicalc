@@ -56,7 +56,11 @@ async def _corretor_token(client, db_sessionmaker, admin_token, email):
         "/license/upgrade", json={"plan_id": plano_pro["id"]}, headers={"Authorization": f"Bearer {admin_token}"}
     )
 
-    await client.post("/users/convites", json={"email": email}, headers={"Authorization": f"Bearer {admin_token}"})
+    await client.post(
+        "/users/convites",
+        json={"email": email, "papel": "corretor"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
     async with db_sessionmaker() as session:
         with system_scope():
             result = await session.execute(select(Convite).where(Convite.email == email))

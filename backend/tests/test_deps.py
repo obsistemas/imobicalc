@@ -48,7 +48,7 @@ async def test_non_admin_cannot_create_convite(client, db_sessionmaker):
 
     await client.post(
         "/users/convites",
-        json={"email": "corretorpapel@example.com"},
+        json={"email": "corretorpapel@example.com", "papel": "corretor"},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
 
@@ -64,7 +64,7 @@ async def test_non_admin_cannot_create_convite(client, db_sessionmaker):
 
     resp = await client.post(
         "/users/convites",
-        json={"email": "outro@example.com"},
+        json={"email": "outro@example.com", "papel": "corretor"},
         headers={"Authorization": f"Bearer {corretor_token}"},
     )
     assert resp.status_code == 403

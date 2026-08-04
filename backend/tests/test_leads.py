@@ -199,7 +199,9 @@ async def test_corretor_visibilidade_leads(client, db_sessionmaker):
         "/license/upgrade", json={"plan_id": plano_pro["id"]}, headers={"Authorization": f"Bearer {admin_token}"}
     )
     await client.post(
-        "/users/convites", json={"email": "lead-vis-corretor@example.com"}, headers={"Authorization": f"Bearer {admin_token}"}
+        "/users/convites",
+        json={"email": "lead-vis-corretor@example.com", "papel": "corretor"},
+        headers={"Authorization": f"Bearer {admin_token}"},
     )
     async with db_sessionmaker() as session:
         with system_scope():

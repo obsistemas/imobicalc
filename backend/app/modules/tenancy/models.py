@@ -19,8 +19,14 @@ class TenantStatus(str, enum.Enum):
 
 
 class Papel(str, enum.Enum):
-    ADMIN = "admin"
+    """010-rbac-papeis: `DONO` é o antigo `ADMIN` renomeado (migração de dado, mesma pessoa,
+    mesmas permissões) — `GERENTE` e `ASSISTENTE` são novos. Ver specs/010-rbac-papeis/spec.md
+    pela matriz de permissões e `app/core/rbac.py` pela lógica de visibilidade/exclusão."""
+
+    DONO = "dono"
+    GERENTE = "gerente"
     CORRETOR = "corretor"
+    ASSISTENTE = "assistente"
 
 
 class Tenant(Base):
@@ -54,8 +60,11 @@ class User(Base, TenantScopedMixin):
     nome: Mapped[str] = mapped_column(String(120))
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
-    papel: Mapped[Papel] = mapped_column(Enum(Papel, native_enum=False), default=Papel.ADMIN)
+    papel: Mapped[Papel] = mapped_column(Enum(Papel, native_enum=False), default=Papel.DONO)
     ativo: Mapped[bool] = mapped_column(default=True)
+    # 010-rbac-papeis: uuid do corretor que este assistente atende — só populado quando
+    # papel=assistente (RN3: sem vínculo, o assistente não enxerga nada, nunca "vê tudo").
+    assistente_de_id: Mapped[uuid_pkg.UUID | None] = mapped_column(nullable=True)
     # Segredos criptografados em repouso (Artigo VII) — ver app/core/crypto.py.
     totp_secret: Mapped[str | None] = mapped_column(String(255), nullable=True)
     totp_enabled: Mapped[bool] = mapped_column(default=False)
@@ -73,6 +82,8 @@ class Convite(Base, TenantScopedMixin):
     uuid: Mapped[uuid_pkg.UUID] = mapped_column(unique=True, default=uuid_pkg.uuid4, index=True)
     email: Mapped[str] = mapped_column(String(255), index=True)
     papel: Mapped[Papel] = mapped_column(Enum(Papel, native_enum=False), default=Papel.CORRETOR)
+    # 010-rbac-papeis: carimbado aqui e propagado pro User quando o convite é aceito.
+    assistente_de_id: Mapped[uuid_pkg.UUID | None] = mapped_column(nullable=True)
     token: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     criado_por_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

@@ -14,17 +14,17 @@ const auth = useAuthStore();
         <router-link :to="{ name: 'leads' }" class="text-primary">Leads</router-link>
         <router-link :to="{ name: 'mapa-calor' }" class="text-primary">Mapa de calor</router-link>
         <router-link :to="{ name: 'plano' }" class="text-primary">Plano</router-link>
-        <router-link v-if="auth.isAdmin" :to="{ name: 'faturas' }" class="text-primary">Faturas</router-link>
-        <router-link v-if="auth.isAdmin" :to="{ name: 'importar-precos' }" class="text-primary">
+        <router-link v-if="auth.isDono" :to="{ name: 'faturas' }" class="text-primary">Faturas</router-link>
+        <router-link v-if="auth.isDono" :to="{ name: 'importar-precos' }" class="text-primary">
           Importar preços
         </router-link>
-        <router-link v-if="auth.isAdmin" :to="{ name: 'convidar-corretor' }" class="text-primary">
-          Convidar corretor
+        <router-link v-if="auth.isDono" :to="{ name: 'convidar-corretor' }" class="text-primary">
+          Convidar equipe
         </router-link>
-        <router-link v-if="auth.isAdmin" :to="{ name: 'integracao-api-key' }" class="text-primary">
+        <router-link v-if="auth.isDono" :to="{ name: 'integracao-api-key' }" class="text-primary">
           Webhook de leads
         </router-link>
-        <router-link v-if="auth.isAdmin && !auth.user?.totp_enabled" :to="{ name: '2fa-setup' }" class="text-primary">
+        <router-link v-if="auth.isDono && !auth.user?.totp_enabled" :to="{ name: '2fa-setup' }" class="text-primary">
           Ativar 2FA
         </router-link>
         <span>{{ auth.user?.nome }}</span>

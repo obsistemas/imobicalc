@@ -82,7 +82,7 @@ onMounted(carregar);
           <li>{{ formatarLimite(plano.max_imoveis) }} imóveis</li>
         </ul>
         <button
-          v-if="auth.isAdmin && license?.plan?.nome !== plano.nome"
+          v-if="auth.isDono && license?.plan?.nome !== plano.nome"
           class="mt-4 w-full rounded-md bg-primary px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
           :disabled="upgrading === plano.id"
           @click="upgrade(plano.id)"

@@ -106,7 +106,9 @@ async def test_upload_imovel_de_outro_corretor_retorna_404(client, db_sessionmak
         "/license/upgrade", json={"plan_id": plano_pro["id"]}, headers={"Authorization": f"Bearer {admin_token}"}
     )
     await client.post(
-        "/users/convites", json={"email": "fotoscorretor@example.com"}, headers={"Authorization": f"Bearer {admin_token}"}
+        "/users/convites",
+        json={"email": "fotoscorretor@example.com", "papel": "corretor"},
+        headers={"Authorization": f"Bearer {admin_token}"},
     )
     from app.modules.tenancy.models import Convite
 

@@ -112,7 +112,7 @@ async def test_query_without_tenant_context_raises(db_session):
 
 
 async def test_insert_without_tenant_context_raises(db_session):
-    db_session.add(User(nome="X", email="x@example.com", password_hash="h", papel=Papel.ADMIN))
+    db_session.add(User(nome="X", email="x@example.com", password_hash="h", papel=Papel.DONO))
     with pytest.raises(TenantContextMissingError):
         await db_session.flush()
 
@@ -122,7 +122,7 @@ async def test_insert_with_mismatched_tenant_id_raises(db_session):
     tenant_b = uuid.uuid4()
     with tenant_scope(tenant_a):
         db_session.add(
-            User(nome="X", email="x2@example.com", password_hash="h", papel=Papel.ADMIN, tenant_id=tenant_b)
+            User(nome="X", email="x2@example.com", password_hash="h", papel=Papel.DONO, tenant_id=tenant_b)
         )
         with pytest.raises(TenantIsolationViolationError):
             await db_session.flush()
@@ -133,7 +133,7 @@ async def test_system_scope_bypasses_read_filter(db_sessionmaker):
     async with db_sessionmaker() as session:
         with tenant_scope(tenant_a):
             session.add(
-                User(nome="Y", email="y@example.com", password_hash="h", papel=Papel.ADMIN)
+                User(nome="Y", email="y@example.com", password_hash="h", papel=Papel.DONO)
             )
             await session.commit()
 

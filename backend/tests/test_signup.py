@@ -14,7 +14,7 @@ async def test_signup_creates_tenant_and_admin(client):
     assert resp.status_code == 201
     body = resp.json()
     assert body["user"]["email"] == "ana@example.com"
-    assert body["user"]["papel"] == "admin"
+    assert body["user"]["papel"] == "dono"
     assert body["token_type"] == "bearer"
     assert body["access_token"]
     assert "refresh_token" in resp.cookies

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_current_user, require_admin
+from app.core.deps import get_current_user, require_dono
 from app.core.tenant_context import tenant_scope
 from app.database import get_session
 from app.modules.licenciamento import service
@@ -36,7 +36,7 @@ async def obter_license(
 async def upgrade_license(
     payload: UpgradeRequest,
     session: AsyncSession = Depends(get_session),
-    admin: User = Depends(require_admin),
+    admin: User = Depends(require_dono),
 ):
     try:
         license_, plan = await service.upgrade_plan(
@@ -50,7 +50,7 @@ async def upgrade_license(
 @router.get("/invoices", response_model=list[InvoiceOut])
 async def listar_faturas(
     session: AsyncSession = Depends(get_session),
-    admin: User = Depends(require_admin),
+    admin: User = Depends(require_dono),
 ):
     with tenant_scope(admin.tenant_id):
         result = await session.execute(

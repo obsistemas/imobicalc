@@ -41,13 +41,16 @@ async def get_current_user(request: Request, session: AsyncSession = Depends(get
     return user
 
 
-async def require_admin(user: User = Depends(get_current_user)) -> User:
-    if user.papel != Papel.ADMIN:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Apenas admin pode executar esta ação")
+async def require_dono(user: User = Depends(get_current_user)) -> User:
+    """010-rbac-papeis: só o dono do tenant — equivalente ao antigo `require_admin` (mesmo papel,
+    nome novo). Usado para ações que a matriz de permissões restringe ao dono: equipe,
+    assinatura/faturas, integração de portais."""
+    if user.papel != Papel.DONO:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Apenas o dono pode executar esta ação")
     return user
 
 
-async def require_admin_with_2fa(user: User = Depends(require_admin)) -> User:
+async def require_dono_com_2fa(user: User = Depends(require_dono)) -> User:
     if not user.totp_enabled:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -56,10 +59,28 @@ async def require_admin_with_2fa(user: User = Depends(require_admin)) -> User:
     return user
 
 
+async def require_pode_avaliar(user: User = Depends(get_current_user)) -> User:
+    """010-rbac-papeis: avaliação/sugestão de preço — todos os papéis exceto assistente
+    (matriz de permissões, US5)."""
+    if user.papel == Papel.ASSISTENTE:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Assistente não pode fazer avaliação/sugestão de preço"
+        )
+    return user
+
+
+async def require_gestao(user: User = Depends(get_current_user)) -> User:
+    """010-rbac-papeis: dono ou gerente — ações de visão/gestão além do próprio (ex.: listar a
+    equipe do tenant)."""
+    if user.papel not in (Papel.DONO, Papel.GERENTE):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Apenas dono ou gerente")
+    return user
+
+
 async def require_superadmin(request: Request, session: AsyncSession = Depends(get_session)):
     """Dependency paralela a `get_current_user`, nunca a mesma (RN3/007-superadmin): um token
-    de tenant (mesmo `admin`) nunca passa aqui, e um token de superadmin nunca passa em
-    `get_current_user`/`require_admin`."""
+    de tenant (mesmo `dono`) nunca passa aqui, e um token de superadmin nunca passa em
+    `get_current_user`/`require_dono`."""
     auth = request.headers.get("authorization", "")
     if not auth.lower().startswith("bearer "):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Não autenticado")

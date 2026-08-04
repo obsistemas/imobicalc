@@ -9,12 +9,13 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.core import rbac
 from app.core.events import emit
 from app.core.tenant_context import tenant_scope
 from app.modules.imoveis.models import Imovel, ImovelStatus, ImovelTipo
 from app.modules.imoveis.schemas import ImovelCreate, ImovelUpdate
 from app.modules.imoveis.viacep_driver import CepLookupDriver
-from app.modules.tenancy.models import Papel, User
+from app.modules.tenancy.models import User
 
 # 009-integracao-portais: mesmo limite de tamanho documentado pelo schema VRSync (Media, 7MB).
 _TIPOS_PERMITIDOS = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
@@ -62,8 +63,10 @@ def _aplicar_campos(imovel: Imovel, payload: ImovelCreate) -> None:
 
 
 def _garante_visivel(imovel: Imovel, user: User) -> None:
-    # 404 (não 403) para não revelar a um corretor a existência de imóvel de outro corretor.
-    if user.papel == Papel.CORRETOR and imovel.corretor_id != user.uuid:
+    # 404 (não 403) para não revelar a existência de imóvel fora do escopo de quem pergunta
+    # (010-rbac-papeis, RN2: escopo_visibilidade é o único lugar que decide isso).
+    escopo = rbac.escopo_visibilidade(user)
+    if escopo is not None and imovel.corretor_id != escopo:
         raise ImovelNotFoundError(imovel.uuid)
 
 
@@ -122,7 +125,9 @@ async def criar_imovel(
     logradouro = await cep_driver.buscar_logradouro(payload.cep)
 
     with tenant_scope(tenant_id):
-        imovel = Imovel(tenant_id=tenant_id, corretor_id=corretor.uuid, logradouro=logradouro, fotos="[]")
+        imovel = Imovel(
+            tenant_id=tenant_id, corretor_id=rbac.corretor_id_efetivo(corretor), logradouro=logradouro, fotos="[]"
+        )
         _aplicar_campos(imovel, payload)
         session.add(imovel)
         await session.flush()
@@ -286,8 +291,9 @@ async def listar_imoveis(
 ) -> tuple[list[Imovel], int]:
     with tenant_scope(tenant_id):
         filtros = [Imovel.tenant_id == tenant_id, Imovel.ativo.is_(True)]
-        if user.papel == Papel.CORRETOR:
-            filtros.append(Imovel.corretor_id == user.uuid)
+        escopo = rbac.escopo_visibilidade(user)
+        if escopo is not None:
+            filtros.append(Imovel.corretor_id == escopo)
         if status is not None:
             filtros.append(Imovel.status == status)
         if tipo is not None:
@@ -339,6 +345,10 @@ async def atualizar_imovel(
 
 async def inativar_imovel(session: AsyncSession, *, tenant_id: uuid.UUID, imovel_uuid: uuid.UUID, user: User) -> None:
     imovel = await obter_imovel(session, tenant_id=tenant_id, imovel_uuid=imovel_uuid, user=user)
+    # 010-rbac-papeis, RN4: ver/editar não implica poder excluir — checagem adicional à
+    # visibilidade já garantida por obter_imovel acima (mesmo 404, não revela o motivo).
+    if not rbac.pode_excluir(imovel.corretor_id, user):
+        raise ImovelNotFoundError(imovel_uuid)
     with tenant_scope(tenant_id):
         imovel.ativo = False
         await session.commit()

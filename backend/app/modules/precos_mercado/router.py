@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, File, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_current_user, require_admin
+from app.core.deps import get_current_user, require_dono
 from app.database import get_session
 from app.modules.precos_mercado import service
 from app.modules.precos_mercado.geocoding_driver import GeocodingDriver, get_geocoding_driver
@@ -30,7 +30,7 @@ async def listar_precos_mercado(
 async def criar_preco_mercado(
     payload: PrecoMercadoCreate,
     session: AsyncSession = Depends(get_session),
-    admin: User = Depends(require_admin),
+    admin: User = Depends(require_dono),
     geocoding_driver: GeocodingDriver = Depends(get_geocoding_driver),
 ):
     preco = await service.create_preco_mercado(session, payload, geocoding_driver=geocoding_driver)
@@ -41,7 +41,7 @@ async def criar_preco_mercado(
 async def importar_precos_mercado(
     arquivo: UploadFile = File(...),
     session: AsyncSession = Depends(get_session),
-    admin: User = Depends(require_admin),
+    admin: User = Depends(require_dono),
     geocoding_driver: GeocodingDriver = Depends(get_geocoding_driver),
 ):
     conteudo_bytes = await arquivo.read()

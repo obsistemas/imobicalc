@@ -75,7 +75,7 @@ async def test_signup_cria_license_trial_no_plano_solo(client, db_sessionmaker):
     assert license_.status == LicenseStatus.TRIAL
     assert plan.nome == "solo"
     assert license_.preco_congelado == Decimal("39.0000")
-    assert body["user"]["papel"] == "admin"
+    assert body["user"]["papel"] == "dono"
 
 
 async def test_get_license_endpoint(client):
@@ -120,7 +120,7 @@ async def test_upgrade_plan_requer_admin(client, db_sessionmaker):
 
     await client.post(
         "/users/convites",
-        json={"email": "corretor-upgrade@example.com"},
+        json={"email": "corretor-upgrade@example.com", "papel": "corretor"},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     async with db_sessionmaker() as session:
@@ -215,7 +215,9 @@ async def test_convidar_alem_do_limite_do_plano_solo_bloqueia_402(client):
     await _ativar_2fa(client, token)
 
     resp = await client.post(
-        "/users/convites", json={"email": "outrocorretor@example.com"}, headers={"Authorization": f"Bearer {token}"}
+        "/users/convites",
+        json={"email": "outrocorretor@example.com", "papel": "corretor"},
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 402
 
@@ -378,7 +380,7 @@ async def test_listar_faturas_requer_admin(client, db_sessionmaker):
 
     convite_resp = await client.post(
         "/users/convites",
-        json={"email": "corretor-faturas@example.com"},
+        json={"email": "corretor-faturas@example.com", "papel": "corretor"},
         headers={"Authorization": f"Bearer {token}"},
     )
     async with db_sessionmaker() as session:
