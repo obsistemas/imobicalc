@@ -147,8 +147,11 @@ async def test_get_users_requer_dono_ou_gerente(client, db_sessionmaker):
 
     resp_dono = await client.get("/users", headers={"Authorization": f"Bearer {dono_token}"})
     assert resp_dono.status_code == 200
-    emails = {u["email"] for u in resp_dono.json()}
+    body = resp_dono.json()
+    emails = {u["email"] for u in body}
     assert {"get-users-corretor@example.com", "get-users-corretor2@example.com"} <= emails
+    # Convenção da API (UserOut/ConviteOut): identificador público é sempre "id", nunca "uuid".
+    assert all("id" in u and "uuid" not in u for u in body)
 
     resp_corretor = await client.get("/users", headers={"Authorization": f"Bearer {corretor_token}"})
     assert resp_corretor.status_code == 403

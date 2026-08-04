@@ -101,7 +101,7 @@ async function onSubmit() {
           class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:border-slate-600 dark:bg-slate-700 dark:text-white"
         >
           <option value="" disabled>Selecione um corretor</option>
-          <option v-for="c in corretores" :key="c.uuid" :value="c.uuid">{{ c.nome }} ({{ c.email }})</option>
+          <option v-for="c in corretores" :key="c.id" :value="c.id">{{ c.nome }} ({{ c.email }})</option>
         </select>
         <p v-if="corretores.length === 0" class="mt-1 text-xs text-amber-600">
           Nenhum corretor ativo na equipe ainda — convide um corretor antes de vincular um assistente.

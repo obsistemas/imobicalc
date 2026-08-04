@@ -102,7 +102,9 @@ class ConviteOut(BaseModel):
 
 
 class UserResumo(BaseModel):
-    uuid: uuid.UUID
+    # "id" (não "uuid") por convenção com UserOut/ConviteOut — user.id (int) é a PK interna;
+    # user.uuid é o identificador público, sempre exposto como "id" na API.
+    id: uuid.UUID
     nome: str
     email: EmailStr
     papel: Papel
@@ -111,7 +113,7 @@ class UserResumo(BaseModel):
     @classmethod
     def from_user(cls, user) -> "UserResumo":
         return cls(
-            uuid=user.uuid,
+            id=user.uuid,
             nome=user.nome,
             email=user.email,
             papel=user.papel,

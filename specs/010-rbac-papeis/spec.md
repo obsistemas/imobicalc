@@ -79,7 +79,8 @@ assistente) ao convidar alguém — hoje todo convite vira corretor, sem escolha
 
 **US7 (P1) — Listar equipe do tenant.** Como dono/gerente, quero ver quem já está na equipe (não
 só convites pendentes), para escolher o corretor certo ao convidar um assistente.
-- AC1: `GET /users` (novo endpoint, dono/gerente) retorna `uuid`, `nome`, `email`, `papel`,
+- AC1: `GET /users` (novo endpoint, dono/gerente) retorna `id` (identificador público — mesma
+  convenção de `UserOut`/`ConviteOut`, nunca `uuid`), `nome`, `email`, `papel`,
   `assistente_de_id` de todos os usuários ativos do tenant.
 
 ## Fora de escopo
