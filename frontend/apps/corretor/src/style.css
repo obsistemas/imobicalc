@@ -1,3 +1,21 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Cor de marca (obsistemas.com.br) — "R G B" sem vírgula, formato exigido pelo Tailwind pra
+   opacidade funcionar em bg-primary/10, border-primary/30 etc. (ver tailwind.config.js).
+
+   O azul original do site (#009fe3, "0 159 227") só tem 2.97:1 de contraste contra branco —
+   abaixo do mínimo de 4.5:1 do WCAG AA pra texto — porque no site ele é usado sobre fundo quase-
+   preto (contraste 6:1 lá). Aqui o app é majoritariamente claro, então o tema claro usa uma
+   variante mais escura do mesmo tom (mesmo H/S, L menor) — ainda reconhecivelmente "o azul da
+   obsistemas", mas legível; o tema escuro usa a cor de marca exata, onde ela já funciona bem. */
+:root {
+  --color-primary: 0 119 168; /* #0077a8 — variante acessível (5:1 contra branco) do azul da obsistemas */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-primary: 0 159 227; /* #009fe3 — azul de marca da obsistemas.com.br, como no site (fundo escuro) */
+  }
+}
